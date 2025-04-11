@@ -12,7 +12,13 @@ import { v } from "convex/values";
  * - Filter categories by type and nature (fixed/dynamic) (by_type_and_nature)
  * - Sort categories by name (by_name)
  * - Update/delete categories (by ID)
- * - Search categories by name (search_name)
+ * - Search categories by name with type filtering (search_name)
+ * - Full-text search with fuzzy matching on category names
+ * - Reactive queries that automatically update when categories change
+ * - Support for pagination and limiting results
+ * - Enforce schema validation on all fields
+ * - Track relationships with transactions (via foreign key)
+ * - Support for complex filtering with multiple conditions
  * 
  * Transactions table:
  * - Group transactions by category (by_category)
