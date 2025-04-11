@@ -283,6 +283,7 @@ export default function CategoriesPage() {
                   <TableHead>Type</TableHead>
                   <TableHead>Nature</TableHead>
                   <TableHead>Budget</TableHead>
+                  <TableHead>Payment Due</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead style={{ width: 50 }}></TableHead>
                 </TableRow>
@@ -334,6 +335,9 @@ export default function CategoriesPage() {
                         {category.budget ? `$${category.budget.toFixed(2)}` : '--'}
                       </TableCell>
                       <TableCell>
+                        {category.paymentDueDay ? `Day ${category.paymentDueDay}` : '--'}
+                      </TableCell>
+                      <TableCell>
                         <StatusBadge isActive={category.isActive} />
                       </TableCell>
                       <TableCell className="p-0">
@@ -354,7 +358,7 @@ export default function CategoriesPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-6 text-muted-foreground h-[400px] align-middle">
+                    <TableCell colSpan={10} className="text-center py-6 text-muted-foreground h-[400px] align-middle">
                       {debouncedSearchQuery 
                         ? `No categories found matching "${debouncedSearchQuery}"` 
                         : typeFilter 
@@ -365,7 +369,7 @@ export default function CategoriesPage() {
                 )}
                 {page === undefined && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-6 text-muted-foreground h-[400px] align-middle">
+                    <TableCell colSpan={10} className="text-center py-6 text-muted-foreground h-[400px] align-middle">
                       Loading...
                     </TableCell>
                   </TableRow>

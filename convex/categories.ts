@@ -15,6 +15,7 @@ export const getAll = query({
     type: v.union(v.literal("income"), v.literal("expense")),
     nature: v.union(v.literal("fixed"), v.literal("dynamic")),
     budget: v.optional(v.number()),
+    paymentDueDay: v.optional(v.number()),
     icon: v.optional(v.string()),
     color: v.optional(v.string()),
     isActive: v.boolean(),
@@ -42,6 +43,7 @@ export const getAllPaginated = query({
       type: v.union(v.literal("income"), v.literal("expense")),
       nature: v.union(v.literal("fixed"), v.literal("dynamic")),
       budget: v.optional(v.number()),
+      paymentDueDay: v.optional(v.number()),
       icon: v.optional(v.string()),
       color: v.optional(v.string()),
       isActive: v.boolean(),
@@ -95,7 +97,12 @@ export const getAllPaginated = query({
     
     // If no search query, return the standard pagination result
     if (!searchQuery) {
-      return paginationResult;
+      // Return only fields expected by the validator
+      return {
+        page: paginationResult.page,
+        isDone: paginationResult.isDone,
+        continueCursor: paginationResult.continueCursor
+      };
     }
     
     // Filter results by search query
@@ -151,7 +158,7 @@ export const getAllPaginated = query({
       return {
         page: nextFilteredPage,
         isDone: nextResult.isDone,
-        continueCursor: nextResult.continueCursor,
+        continueCursor: nextResult.continueCursor
       };
     }
     
@@ -159,7 +166,7 @@ export const getAllPaginated = query({
     return {
       page: filteredPage,
       isDone: paginationResult.isDone,
-      continueCursor: paginationResult.continueCursor,
+      continueCursor: paginationResult.continueCursor
     };
   },
 });
@@ -175,6 +182,7 @@ export const getByType = query({
     type: v.union(v.literal("income"), v.literal("expense")),
     nature: v.union(v.literal("fixed"), v.literal("dynamic")),
     budget: v.optional(v.number()),
+    paymentDueDay: v.optional(v.number()),
     icon: v.optional(v.string()),
     color: v.optional(v.string()),
     isActive: v.boolean(),
@@ -202,6 +210,7 @@ export const getByTypePaginated = query({
       type: v.union(v.literal("income"), v.literal("expense")),
       nature: v.union(v.literal("fixed"), v.literal("dynamic")),
       budget: v.optional(v.number()),
+      paymentDueDay: v.optional(v.number()),
       icon: v.optional(v.string()),
       color: v.optional(v.string()),
       isActive: v.boolean(),
@@ -220,7 +229,7 @@ export const getByTypePaginated = query({
     return {
       page: paginationResult.page,
       isDone: paginationResult.isDone,
-      continueCursor: paginationResult.continueCursor,
+      continueCursor: paginationResult.continueCursor
     };
   },
 });
@@ -237,6 +246,7 @@ export const getById = query({
       type: v.union(v.literal("income"), v.literal("expense")),
       nature: v.union(v.literal("fixed"), v.literal("dynamic")),
       budget: v.optional(v.number()),
+      paymentDueDay: v.optional(v.number()),
       icon: v.optional(v.string()),
       color: v.optional(v.string()),
       isActive: v.boolean(),
@@ -274,6 +284,7 @@ export const create = mutation({
     type: v.union(v.literal("income"), v.literal("expense")),
     nature: v.union(v.literal("fixed"), v.literal("dynamic")),
     budget: v.optional(v.number()),
+    paymentDueDay: v.optional(v.number()),
     icon: v.optional(v.string()),
     color: v.optional(v.string()),
   },
@@ -285,6 +296,7 @@ export const create = mutation({
       type: args.type,
       nature: args.nature,
       budget: args.budget,
+      paymentDueDay: args.paymentDueDay,
       icon: args.icon,
       color: args.color,
       isActive: true,
@@ -300,6 +312,7 @@ export const update = mutation({
     description: v.optional(v.string()),
     nature: v.optional(v.union(v.literal("fixed"), v.literal("dynamic"))),
     budget: v.optional(v.number()),
+    paymentDueDay: v.optional(v.number()),
     icon: v.optional(v.string()),
     color: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
