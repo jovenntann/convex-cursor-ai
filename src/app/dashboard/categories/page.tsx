@@ -475,6 +475,17 @@ export default function CategoriesPage() {
     setCursor(null); // Reset to first page
   }
   
+  function toggleSortByDate() {
+    if (!sortByName) {
+      // If already sorting by date, toggle direction
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      // Start sorting by date
+      setSortByName(false);
+    }
+    setCursor(null); // Reset to first page
+  }
+  
   function toggleSortDirection() {
     setSortDirection(prev => prev === "asc" ? "desc" : "asc");
     setCursor(null); // Reset to first page
@@ -552,20 +563,11 @@ export default function CategoriesPage() {
               <Button 
                 variant={!sortByName ? "default" : "outline"} 
                 size="sm"
-                onClick={resetSort}
+                onClick={toggleSortByDate}
                 className={`flex items-center gap-1 ${!sortByName ? "bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-400" : ""}`}
               >
                 <span className="font-medium">By Date</span>
                 {!sortByName && <SortIndicator active={true} direction={sortDirection} />}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleSortDirection}
-                className="flex items-center gap-1 border-gray-300"
-              >
-                <span>{sortDirection === "asc" ? "Ascending" : "Descending"}</span>
-                <SortIndicator active={true} direction={sortDirection} />
               </Button>
             </div>
             
