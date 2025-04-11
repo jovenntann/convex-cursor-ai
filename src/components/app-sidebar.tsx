@@ -3,6 +3,7 @@
 import * as React from "react"
 import {
   IconCamera,
+  IconCategory,
   IconChartBar,
   IconDashboard,
   IconDatabase,
@@ -37,8 +38,13 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "#",
+      url: "/dashboard/home",
       icon: IconDashboard,
+    },
+    {
+      title: "Categories",
+      url: "/dashboard/categories",
+      icon: IconCategory,
     },
     {
       title: "Lifecycle",
