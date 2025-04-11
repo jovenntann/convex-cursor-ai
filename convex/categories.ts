@@ -54,19 +54,21 @@ export const getAllPaginated = query({
     const direction = args.sortDirection || "asc";
     const searchQuery = args.searchQuery?.trim().toLowerCase();
     
-    // Create the appropriate query based on sort preferences and filters
+    // Build our query with the appropriate filters and sorting
     let paginationResult;
     
-    // Standard pagination approach for all cases
+    // Apply the appropriate query based on filters
     if (args.type) {
       // If filtering by type
       if (args.sortByName) {
+        // Type + Name sorting
         paginationResult = await ctx.db
           .query("categories")
           .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
           .order(direction)
           .paginate(args.paginationOpts);
       } else {
+        // Type only
         paginationResult = await ctx.db
           .query("categories")
           .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
@@ -76,12 +78,14 @@ export const getAllPaginated = query({
     } else {
       // No type filter
       if (args.sortByName) {
+        // Name sorting
         paginationResult = await ctx.db
           .query("categories")
           .withIndex("by_name")
           .order(direction)
           .paginate(args.paginationOpts);
       } else {
+        // Default sort
         paginationResult = await ctx.db
           .query("categories")
           .order(direction)
@@ -89,74 +93,71 @@ export const getAllPaginated = query({
       }
     }
     
-    // If search query exists, filter the paginated results
-    if (searchQuery) {
-      const filteredPage = paginationResult.page.filter(
+    // If no search query, return the standard pagination result
+    if (!searchQuery) {
+      return paginationResult;
+    }
+    
+    // Filter results by search query
+    const filteredPage = paginationResult.page.filter(
+      category => category.name.toLowerCase().includes(searchQuery)
+    );
+    
+    // If we filtered everything out and there are more pages,
+    // get the next page and try again (but limit to avoid excessive queries)
+    if (filteredPage.length === 0 && !paginationResult.isDone && paginationResult.continueCursor) {
+      // Get next page with the same cursor
+      const nextPageOpts = {
+        ...args.paginationOpts,
+        cursor: paginationResult.continueCursor
+      };
+      
+      // Apply the same query structure with the new pagination options
+      let nextResult;
+      if (args.type) {
+        if (args.sortByName) {
+          nextResult = await ctx.db
+            .query("categories")
+            .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
+            .order(direction)
+            .paginate(nextPageOpts);
+        } else {
+          nextResult = await ctx.db
+            .query("categories")
+            .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
+            .order(direction)
+            .paginate(nextPageOpts);
+        }
+      } else {
+        if (args.sortByName) {
+          nextResult = await ctx.db
+            .query("categories")
+            .withIndex("by_name")
+            .order(direction)
+            .paginate(nextPageOpts);
+        } else {
+          nextResult = await ctx.db
+            .query("categories")
+            .order(direction)
+            .paginate(nextPageOpts);
+        }
+      }
+      
+      // Filter the next page results
+      const nextFilteredPage = nextResult.page.filter(
         category => category.name.toLowerCase().includes(searchQuery)
       );
       
-      // If we filtered everything out and there are more pages, try to get more results
-      if (filteredPage.length === 0 && !paginationResult.isDone) {
-        // Recursively call with next cursor to get more results
-        // This is a simplified implementation - in production code,
-        // you might want a more sophisticated approach to avoid deep recursion
-        const nextResults = await ctx.db
-          .query("categories")
-          .collect()
-          .then(allCategories => {
-            // Filter by search and type
-            let filtered = allCategories;
-            
-            if (searchQuery) {
-              filtered = filtered.filter(
-                category => category.name.toLowerCase().includes(searchQuery)
-              );
-            }
-            
-            if (args.type) {
-              filtered = filtered.filter(
-                category => category.type === args.type
-              );
-            }
-            
-            // Sort results
-            if (args.sortByName) {
-              filtered.sort((a, b) => {
-                const result = a.name.localeCompare(b.name);
-                return direction === "asc" ? result : -result;
-              });
-            } else {
-              filtered.sort((a, b) => {
-                const result = a._creationTime - b._creationTime;
-                return direction === "asc" ? result : -result;
-              });
-            }
-            
-            // Manual pagination
-            const startIndex = 0;
-            const endIndex = args.paginationOpts.numItems;
-            const pageResults = filtered.slice(startIndex, endIndex);
-            
-            return {
-              page: pageResults,
-              isDone: endIndex >= filtered.length,
-              continueCursor: endIndex < filtered.length ? endIndex.toString() : null,
-            };
-          });
-        
-        return nextResults;
-      }
-      
       return {
-        page: filteredPage,
-        isDone: paginationResult.isDone,
-        continueCursor: paginationResult.continueCursor,
+        page: nextFilteredPage,
+        isDone: nextResult.isDone,
+        continueCursor: nextResult.continueCursor,
       };
     }
     
-    // Return standard paginated results
+    // Return filtered results with original pagination metadata
     return {
-      page: paginationResult.page,
+      page: filteredPage,
       isDone: paginationResult.isDone,
       continueCursor: paginationResult.continueCursor,
     };
