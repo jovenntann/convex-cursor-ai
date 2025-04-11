@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { Id } from "./_generated/dataModel";
+import { api } from "./_generated/api";
 
 // Get all categories
 export const getAll = query({
@@ -29,7 +30,8 @@ export const getAllPaginated = query({
     paginationOpts: paginationOptsValidator,
     sortByName: v.optional(v.boolean()),
     sortDirection: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
-    type: v.optional(v.union(v.literal("income"), v.literal("expense")))
+    type: v.optional(v.union(v.literal("income"), v.literal("expense"))),
+    searchQuery: v.optional(v.string())
   },
   returns: v.object({
     page: v.array(v.object({
@@ -50,22 +52,21 @@ export const getAllPaginated = query({
   handler: async (ctx, args) => {
     // Default sort direction
     const direction = args.sortDirection || "asc";
+    const searchQuery = args.searchQuery?.trim().toLowerCase();
     
     // Create the appropriate query based on sort preferences and filters
     let paginationResult;
     
+    // Standard pagination approach for all cases
     if (args.type) {
       // If filtering by type
       if (args.sortByName) {
-        // When filtering by type and sorting by name, we need to combine both operations
-        // First get filtered results by type
         paginationResult = await ctx.db
           .query("categories")
           .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
-          .order(direction) // Sort within type filter
+          .order(direction)
           .paginate(args.paginationOpts);
       } else {
-        // Just filter by type, sorted by creation time
         paginationResult = await ctx.db
           .query("categories")
           .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
@@ -75,22 +76,85 @@ export const getAllPaginated = query({
     } else {
       // No type filter
       if (args.sortByName) {
-        // Sort by name only
         paginationResult = await ctx.db
           .query("categories")
           .withIndex("by_name")
           .order(direction)
           .paginate(args.paginationOpts);
       } else {
-        // Default sort by creation time
         paginationResult = await ctx.db
           .query("categories")
-          .order(direction === "asc" ? "asc" : "desc")
+          .order(direction)
           .paginate(args.paginationOpts);
       }
     }
     
-    // Return only the fields our validator expects
+    // If search query exists, filter the paginated results
+    if (searchQuery) {
+      const filteredPage = paginationResult.page.filter(
+        category => category.name.toLowerCase().includes(searchQuery)
+      );
+      
+      // If we filtered everything out and there are more pages, try to get more results
+      if (filteredPage.length === 0 && !paginationResult.isDone) {
+        // Recursively call with next cursor to get more results
+        // This is a simplified implementation - in production code,
+        // you might want a more sophisticated approach to avoid deep recursion
+        const nextResults = await ctx.db
+          .query("categories")
+          .collect()
+          .then(allCategories => {
+            // Filter by search and type
+            let filtered = allCategories;
+            
+            if (searchQuery) {
+              filtered = filtered.filter(
+                category => category.name.toLowerCase().includes(searchQuery)
+              );
+            }
+            
+            if (args.type) {
+              filtered = filtered.filter(
+                category => category.type === args.type
+              );
+            }
+            
+            // Sort results
+            if (args.sortByName) {
+              filtered.sort((a, b) => {
+                const result = a.name.localeCompare(b.name);
+                return direction === "asc" ? result : -result;
+              });
+            } else {
+              filtered.sort((a, b) => {
+                const result = a._creationTime - b._creationTime;
+                return direction === "asc" ? result : -result;
+              });
+            }
+            
+            // Manual pagination
+            const startIndex = 0;
+            const endIndex = args.paginationOpts.numItems;
+            const pageResults = filtered.slice(startIndex, endIndex);
+            
+            return {
+              page: pageResults,
+              isDone: endIndex >= filtered.length,
+              continueCursor: endIndex < filtered.length ? endIndex.toString() : null,
+            };
+          });
+        
+        return nextResults;
+      }
+      
+      return {
+        page: filteredPage,
+        isDone: paginationResult.isDone,
+        continueCursor: paginationResult.continueCursor,
+      };
+    }
+    
+    // Return standard paginated results
     return {
       page: paginationResult.page,
       isDone: paginationResult.isDone,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "@convex/_generated/api";
 import { useQuery } from "convex/react";
 import { Id } from "@convex/_generated/dataModel";
@@ -33,6 +33,8 @@ import {
   IconArrowDown,
   IconArrowsSort,
   IconFilter,
+  IconSearch,
+  IconX,
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -42,6 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 export default function CategoriesPage() {
   const [cursor, setCursor] = useState<string | null>(null);
@@ -50,6 +53,19 @@ export default function CategoriesPage() {
   const [sortByName, setSortByName] = useState(false);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [typeFilter, setTypeFilter] = useState<"income" | "expense" | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
+  
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      // Reset cursor when search changes
+      setCursor(null);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
   
   const { page, isDone, continueCursor } = useQuery(api.categories.getAllPaginated, {
     paginationOpts: {
@@ -58,7 +74,8 @@ export default function CategoriesPage() {
     },
     sortByName,
     sortDirection,
-    ...(typeFilter ? { type: typeFilter } : {})
+    ...(typeFilter ? { type: typeFilter } : {}),
+    ...(debouncedSearchQuery ? { searchQuery: debouncedSearchQuery } : {})
   }) || { page: [], isDone: true, continueCursor: null };
 
   function handleNextPage() {
@@ -122,6 +139,11 @@ export default function CategoriesPage() {
       setTypeFilter(value as "income" | "expense");
     }
     setCursor(null); // Reset to first page when changing filter
+  }
+  
+  function clearSearch() {
+    setSearchQuery("");
+    setCursor(null);
   }
 
   // Status component
@@ -192,7 +214,29 @@ export default function CategoriesPage() {
               </Button>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full md:w-auto min-w-[220px]">
+                <IconSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search categories..."
+                  className="pl-8 h-9"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="absolute right-1 top-1 h-7 w-7 px-0" 
+                    onClick={clearSearch}
+                  >
+                    <IconX className="h-4 w-4" />
+                    <span className="sr-only">Clear search</span>
+                  </Button>
+                )}
+              </div>
+              
               <span className="text-sm font-medium">Filter:</span>
               <Select
                 value={typeFilter || "all"}
@@ -311,9 +355,11 @@ export default function CategoriesPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-6 text-muted-foreground h-[400px] align-middle">
-                      {typeFilter 
-                        ? `No ${typeFilter} categories found` 
-                        : 'No categories found'}
+                      {debouncedSearchQuery 
+                        ? `No categories found matching "${debouncedSearchQuery}"` 
+                        : typeFilter 
+                          ? `No ${typeFilter} categories found` 
+                          : 'No categories found'}
                     </TableCell>
                   </TableRow>
                 )}
