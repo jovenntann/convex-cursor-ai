@@ -87,13 +87,26 @@ const categoryFormSchema = z.object({
 type CategoryFormValues = z.infer<typeof categoryFormSchema>;
 
 // CategoryForm component
-function CategoryForm({ open, onOpenChange, onSuccess }: { 
+function CategoryForm({ open, onOpenChange, onSuccess, editCategory }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  editCategory?: {
+    id: Id<"categories">;
+    name: string;
+    description: string;
+    icon?: string;
+    type: "income" | "expense";
+    nature: "fixed" | "dynamic";
+    budget?: number;
+    paymentDueDay?: number;
+    isActive: boolean;
+  };
 }) {
   const createCategory = useMutation(api.categories.create);
+  const updateCategory = useMutation(api.categories.update);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditing = !!editCategory;
   
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema) as any,
@@ -112,19 +125,34 @@ function CategoryForm({ open, onOpenChange, onSuccess }: {
     { label: "Variable", value: "dynamic", badge: "bg-amber-100 text-amber-800", description: "Changes" },
   ];
 
-  // Reset form when dialog opens
+  // Update form when editing or opening
   useEffect(() => {
     if (open) {
-      form.reset({
-        name: "",
-        description: "",
-        icon: "📁",
-        type: "expense",
-        nature: "fixed",
-        isActive: true,
-      });
+      if (editCategory) {
+        // Set form values for editing
+        form.reset({
+          name: editCategory.name,
+          description: editCategory.description || "",
+          icon: editCategory.icon || "📁",
+          type: editCategory.type,
+          nature: editCategory.nature,
+          budget: editCategory.budget,
+          paymentDueDay: editCategory.paymentDueDay,
+          isActive: editCategory.isActive,
+        });
+      } else {
+        // Reset form for new category
+        form.reset({
+          name: "",
+          description: "",
+          icon: "📁",
+          type: "expense",
+          nature: "fixed",
+          isActive: true,
+        });
+      }
     }
-  }, [open, form]);
+  }, [open, form, editCategory]);
 
   async function onSubmit(values: CategoryFormValues) {
     try {
@@ -142,26 +170,49 @@ function CategoryForm({ open, onOpenChange, onSuccess }: {
         color: values.type === "income" ? "#4CAF50" : "#F44336", // Green for income, Red for expense
       };
       
-      const categoryId = await createCategory(categoryData);
+      let categoryId;
       
-      // Enhanced toast notification with more styling and action buttons
-      toast.success(`Category Created`, {
-        description: `"${values.name}" was successfully created`,
-        action: {
-          label: "View Categories",
-          onClick: () => onOpenChange(false),
-        },
-        duration: 5000,
-        icon: values.icon || "📁",
-      });
+      if (isEditing && editCategory) {
+        // Update existing category
+        categoryId = await updateCategory({
+          id: editCategory.id,
+          ...categoryData,
+          isActive: values.isActive
+        });
+        
+        // Show success toast
+        toast.success(`Category Updated`, {
+          description: `"${values.name}" was successfully updated`,
+          action: {
+            label: "View Categories",
+            onClick: () => onOpenChange(false),
+          },
+          duration: 5000,
+          icon: values.icon || "📁",
+        });
+      } else {
+        // Create new category
+        categoryId = await createCategory(categoryData);
+        
+        // Enhanced toast notification with more styling and action buttons
+        toast.success(`Category Created`, {
+          description: `"${values.name}" was successfully created`,
+          action: {
+            label: "View Categories",
+            onClick: () => onOpenChange(false),
+          },
+          duration: 5000,
+          icon: values.icon || "📁",
+        });
+      }
       
       form.reset();
       onOpenChange(false);
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error("Error creating category:", error);
-      toast.error("Failed to Create Category", {
-        description: "There was a problem creating your category. Please try again.",
+      console.error(`Error ${isEditing ? 'updating' : 'creating'} category:`, error);
+      toast.error(`Failed to ${isEditing ? 'Update' : 'Create'} Category`, {
+        description: `There was a problem ${isEditing ? 'updating' : 'creating'} your category. Please try again.`,
         action: {
           label: "Retry",
           onClick: () => form.handleSubmit(onSubmit)(),
@@ -176,9 +227,9 @@ function CategoryForm({ open, onOpenChange, onSuccess }: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add Category</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit' : 'Add'} Category</DialogTitle>
           <DialogDescription>
-            Create a new category for organizing your income and expenses.
+            {isEditing ? 'Update category details.' : 'Create a new category for organizing your income and expenses.'}
           </DialogDescription>
         </DialogHeader>
         
@@ -385,7 +436,10 @@ function CategoryForm({ open, onOpenChange, onSuccess }: {
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Category"}
+                {isSubmitting 
+                  ? isEditing ? "Updating..." : "Creating..." 
+                  : isEditing ? "Update Category" : "Create Category"
+                }
               </Button>
             </DialogFooter>
           </form>
@@ -409,6 +463,7 @@ export default function CategoriesPage() {
   const [categoryToDelete, setCategoryToDelete] = useState<{ id: Id<"categories">; name: string } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [bulkDelete, setBulkDelete] = useState(false);
+  const [categoryToEdit, setCategoryToEdit] = useState<any>(null);
   
   // Get mutations
   const deleteCategory = useMutation(api.categories.remove);
@@ -608,6 +663,28 @@ export default function CategoriesPage() {
     setCategoryToDelete(null);
     setBulkDelete(false);
   }
+
+  // Handle edit for a category
+  function handleEdit(category: any) {
+    setCategoryToEdit({
+      id: category._id,
+      name: category.name,
+      description: category.description,
+      icon: category.icon,
+      type: category.type,
+      nature: category.nature,
+      budget: category.budget,
+      paymentDueDay: category.paymentDueDay,
+      isActive: category.isActive
+    });
+    setShowCategoryForm(true);
+  }
+  
+  // Close category form and reset edit state
+  function handleCloseForm() {
+    setShowCategoryForm(false);
+    setCategoryToEdit(null);
+  }
   
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
@@ -801,11 +878,15 @@ export default function CategoriesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEdit(category)}>
+                              <IconPencil className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive" 
                               onClick={() => handleDelete(category._id, category.name)}
                             >
+                              <IconTrash className="h-4 w-4 mr-2" />
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -877,11 +958,12 @@ export default function CategoriesPage() {
         </div>
       </div>
       
-      {/* Add Category Modal */}
+      {/* Category Modal (for both Add and Edit) */}
       <CategoryForm 
         open={showCategoryForm} 
-        onOpenChange={setShowCategoryForm} 
+        onOpenChange={handleCloseForm} 
         onSuccess={refreshData}
+        editCategory={categoryToEdit}
       />
       
       {/* Delete Confirmation Dialog */}

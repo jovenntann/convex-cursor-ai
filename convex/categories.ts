@@ -284,6 +284,7 @@ export const update = mutation({
     id: v.id("categories"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
+    type: v.optional(v.union(v.literal("income"), v.literal("expense"))),
     nature: v.optional(v.union(v.literal("fixed"), v.literal("dynamic"))),
     budget: v.optional(v.number()),
     paymentDueDay: v.optional(v.number()),
