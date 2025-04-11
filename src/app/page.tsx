@@ -9,8 +9,10 @@ export default function Home() {
   const { isSignedIn, isLoaded } = useUser();
   const [isMounted, setIsMounted] = useState(false);
   
-  // Use optional chaining and conditional execution
-  const getUser = isSignedIn ? useQuery(api.users.getUser) : null;
+  // Always call useQuery hook, regardless of isSignedIn
+  const userResult = useQuery(api.users.getUser);
+  // Then conditionally use the result
+  const getUser = isSignedIn ? userResult : null;
 
   // Wait until the component is mounted before rendering anything that depends on auth
   useEffect(() => {
