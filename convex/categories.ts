@@ -54,120 +54,94 @@ export const getAllPaginated = query({
   handler: async (ctx, args) => {
     // Default sort direction
     const direction = args.sortDirection || "asc";
-    const searchQuery = args.searchQuery?.trim().toLowerCase();
+    const searchQuery = args.searchQuery?.trim();
     
     // Build our query with the appropriate filters and sorting
-    let paginationResult;
+    let query;
+    let resultsNeedSorting = false;
     
-    // Apply the appropriate query based on filters
-    if (args.type) {
-      // If filtering by type
-      if (args.sortByName) {
-        // Type + Name sorting
-        paginationResult = await ctx.db
+    // If search query is provided, use the search index
+    if (searchQuery && searchQuery.length > 0) {
+      // Use search index with optional type filter
+      if (args.type) {
+        query = ctx.db
           .query("categories")
-          .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
-          .order(direction)
-          .paginate(args.paginationOpts);
+          .withSearchIndex("search_name", q => 
+            q.search("name", searchQuery)
+             .eq("type", args.type as "income" | "expense")
+          );
       } else {
-        // Type only
-        paginationResult = await ctx.db
+        query = ctx.db
           .query("categories")
-          .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
-          .order(direction)
-          .paginate(args.paginationOpts);
+          .withSearchIndex("search_name", q => 
+            q.search("name", searchQuery)
+          );
       }
-    } else {
-      // No type filter
+      
+      // If we want to sort by name rather than relevance
       if (args.sortByName) {
-        // Name sorting
-        paginationResult = await ctx.db
-          .query("categories")
-          .withIndex("by_name")
-          .order(direction)
-          .paginate(args.paginationOpts);
-      } else {
-        // Default sort
-        paginationResult = await ctx.db
-          .query("categories")
-          .order(direction)
-          .paginate(args.paginationOpts);
+        resultsNeedSorting = true;
       }
-    }
-    
-    // If no search query, return the standard pagination result
-    if (!searchQuery) {
-      // Return only fields expected by the validator
+      
+      // Get results with pagination for search query
+      const paginationResult = await query.paginate(args.paginationOpts);
+      
+      // If we need to sort by name instead of search relevance
+      if (resultsNeedSorting) {
+        const sortedPage = [...paginationResult.page].sort((a, b) => {
+          if (direction === "asc") {
+            return a.name.localeCompare(b.name);
+          } else {
+            return b.name.localeCompare(a.name);
+          }
+        });
+        
+        return {
+          page: sortedPage,
+          isDone: paginationResult.isDone,
+          continueCursor: paginationResult.continueCursor
+        };
+      }
+      
+      return {
+        page: paginationResult.page,
+        isDone: paginationResult.isDone,
+        continueCursor: paginationResult.continueCursor
+      };
+    } 
+    // Otherwise use regular indexes with sorting
+    else {
+      if (args.type) {
+        // If filtering by type
+        query = ctx.db
+          .query("categories")
+          .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"));
+      } else {
+        // No type filter
+        if (args.sortByName) {
+          // Name sorting
+          query = ctx.db
+            .query("categories")
+            .withIndex("by_name");
+        } else {
+          // Default sort
+          query = ctx.db
+            .query("categories");
+        }
+      }
+      
+      // Apply sorting for non-search queries
+      query = query.order(direction);
+      
+      // Get results with pagination
+      const paginationResult = await query.paginate(args.paginationOpts);
+      
       return {
         page: paginationResult.page,
         isDone: paginationResult.isDone,
         continueCursor: paginationResult.continueCursor
       };
     }
-    
-    // Filter results by search query
-    const filteredPage = paginationResult.page.filter(
-      category => category.name.toLowerCase().includes(searchQuery)
-    );
-    
-    // If we filtered everything out and there are more pages,
-    // get the next page and try again (but limit to avoid excessive queries)
-    if (filteredPage.length === 0 && !paginationResult.isDone && paginationResult.continueCursor) {
-      // Get next page with the same cursor
-      const nextPageOpts = {
-        ...args.paginationOpts,
-        cursor: paginationResult.continueCursor
-      };
-      
-      // Apply the same query structure with the new pagination options
-      let nextResult;
-      if (args.type) {
-        if (args.sortByName) {
-          nextResult = await ctx.db
-            .query("categories")
-            .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
-            .order(direction)
-            .paginate(nextPageOpts);
-        } else {
-          nextResult = await ctx.db
-            .query("categories")
-            .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
-            .order(direction)
-            .paginate(nextPageOpts);
-        }
-      } else {
-        if (args.sortByName) {
-          nextResult = await ctx.db
-            .query("categories")
-            .withIndex("by_name")
-            .order(direction)
-            .paginate(nextPageOpts);
-        } else {
-          nextResult = await ctx.db
-            .query("categories")
-            .order(direction)
-            .paginate(nextPageOpts);
-        }
-      }
-      
-      // Filter the next page results
-      const nextFilteredPage = nextResult.page.filter(
-        category => category.name.toLowerCase().includes(searchQuery)
-      );
-      
-      return {
-        page: nextFilteredPage,
-        isDone: nextResult.isDone,
-        continueCursor: nextResult.continueCursor
-      };
-    }
-    
-    // Return filtered results with original pagination metadata
-    return {
-      page: filteredPage,
-      isDone: paginationResult.isDone,
-      continueCursor: paginationResult.continueCursor
-    };
   },
 });
 

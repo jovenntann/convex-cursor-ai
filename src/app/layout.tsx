@@ -2,10 +2,11 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import "./globals.css";
 import Provider from "./provider";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "Convex + Clerk Demo",
-  description: "A demo of Convex and Clerk integration",
+  title: "Finance App",
+  description: "Track your finances with ease",
 };
 
 export default function RootLayout({
@@ -20,6 +21,7 @@ export default function RootLayout({
           <Provider>
             {children}
           </Provider>
+          <Toaster position="bottom-right" richColors />
         </body>
       </html>
     </ClerkProvider>

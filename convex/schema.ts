@@ -12,6 +12,7 @@ import { v } from "convex/values";
  * - Filter categories by type and nature (fixed/dynamic) (by_type_and_nature)
  * - Sort categories by name (by_name)
  * - Update/delete categories (by ID)
+ * - Search categories by name (search_name)
  * 
  * Transactions table:
  * - Group transactions by category (by_category)
@@ -43,7 +44,11 @@ export default defineSchema({
   })
     .index("by_type", ["type"])
     .index("by_type_and_nature", ["type", "nature"])
-    .index("by_name", ["name"]),
+    .index("by_name", ["name"])
+    .searchIndex("search_name", {
+      searchField: "name",
+      filterFields: ["type"]
+    }),
     
   // Transactions table (for category relationships)
   transactions: defineTable({
