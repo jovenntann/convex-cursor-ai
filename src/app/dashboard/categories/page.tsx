@@ -71,6 +71,21 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+// Selected popular emojis for financial categories (limited to 30)
+const POPULAR_EMOJIS = [
+  "💰", "💵", "💳", "🏦", "💹", 
+  "📊", "📈", "📉", "💼", "🏠", 
+  "🚗", "✈️", "🍔", "🛒", "🛍️", 
+  "🏥", "💊", "📱", "💻", "🔌", 
+  "🎮", "🎬", "📚", "👕", "🎓", 
+  "🏋️", "💇", "🚿", "🧾", "📁"
+];
 
 // Form schema for adding/editing a category
 const categoryFormSchema = z.object({
@@ -85,6 +100,39 @@ const categoryFormSchema = z.object({
 });
 
 type CategoryFormValues = z.infer<typeof categoryFormSchema>;
+
+// EmojiPicker component 
+function EmojiPicker({ value, onChange }: { value: string; onChange: (emoji: string) => void }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="w-full h-10 px-3 font-normal justify-start text-xl"
+          role="combobox"
+        >
+          {value || "📁"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-4" align="start">
+        <div className="grid grid-cols-6 gap-2">
+          {POPULAR_EMOJIS.map((emoji) => (
+            <Button
+              key={emoji}
+              variant="outline"
+              className="h-10 w-10 p-0 text-xl"
+              onClick={() => {
+                onChange(emoji);
+              }}
+            >
+              {emoji}
+            </Button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // CategoryForm component
 function CategoryForm({ open, onOpenChange, onSuccess, editCategory }: { 
@@ -243,10 +291,13 @@ function CategoryForm({ open, onOpenChange, onSuccess, editCategory }: {
                   <FormItem className="col-span-1">
                     <FormLabel>Icon</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <EmojiPicker 
+                        value={field.value || "📁"} 
+                        onChange={(emoji) => field.onChange(emoji)} 
+                      />
                     </FormControl>
                     <FormDescription>
-                      Emoji icon
+                      Select emoji
                     </FormDescription>
                   </FormItem>
                 )}
