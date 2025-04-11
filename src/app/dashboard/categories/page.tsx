@@ -29,6 +29,10 @@ import {
   IconDotsVertical,
   IconLoader,
   IconCircleCheckFilled,
+  IconArrowUp,
+  IconArrowDown,
+  IconArrowsSort,
+  IconFilter,
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -43,12 +47,18 @@ export default function CategoriesPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState(10);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [sortByName, setSortByName] = useState(false);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [typeFilter, setTypeFilter] = useState<"income" | "expense" | null>(null);
   
   const { page, isDone, continueCursor } = useQuery(api.categories.getAllPaginated, {
     paginationOpts: {
       numItems: pageSize,
       cursor: cursor,
-    }
+    },
+    sortByName,
+    sortDirection,
+    ...(typeFilter ? { type: typeFilter } : {})
   }) || { page: [], isDone: true, continueCursor: null };
 
   function handleNextPage() {
@@ -82,6 +92,37 @@ export default function CategoriesPage() {
     setPageSize(Number(value));
     setCursor(null); // Reset to first page when changing page size
   }
+  
+  function toggleSortByName() {
+    if (sortByName) {
+      // If already sorting by name, toggle direction
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      // Start sorting by name
+      setSortByName(true);
+    }
+    setCursor(null); // Reset to first page
+  }
+  
+  function toggleSortDirection() {
+    setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    setCursor(null); // Reset to first page
+  }
+  
+  function resetSort() {
+    setSortByName(false);
+    setSortDirection("asc");
+    setCursor(null); // Reset to first page
+  }
+
+  function handleTypeFilterChange(value: string) {
+    if (value === "all") {
+      setTypeFilter(null);
+    } else {
+      setTypeFilter(value as "income" | "expense");
+    }
+    setCursor(null); // Reset to first page when changing filter
+  }
 
   // Status component
   const StatusBadge = ({ isActive }: { isActive: boolean }) => (
@@ -100,6 +141,14 @@ export default function CategoriesPage() {
     </div>
   );
   
+  // Sort indicator component
+  const SortIndicator = ({ active = false, direction = "asc" }: { active?: boolean, direction?: "asc" | "desc" }) => {
+    if (!active) return <IconArrowsSort className="h-4 w-4 text-muted-foreground" />;
+    return direction === "asc" 
+      ? <IconArrowUp className="h-5 w-5 text-blue-600 ml-1 font-bold" /> 
+      : <IconArrowDown className="h-5 w-5 text-blue-600 ml-1 font-bold" />;
+  };
+  
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -111,6 +160,59 @@ export default function CategoriesPage() {
         </div>
         
         <div className="px-4 lg:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Sort:</span>
+              <Button 
+                variant={sortByName ? "default" : "outline"} 
+                size="sm"
+                onClick={toggleSortByName}
+                className={`flex items-center gap-1 ${sortByName ? "bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-400" : ""}`}
+              >
+                <span className="font-medium">By Name</span>
+                {sortByName && <SortIndicator active={true} direction={sortDirection} />}
+              </Button>
+              <Button 
+                variant={!sortByName ? "default" : "outline"} 
+                size="sm"
+                onClick={resetSort}
+                className={`flex items-center gap-1 ${!sortByName ? "bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-400" : ""}`}
+              >
+                <span className="font-medium">By Date</span>
+                {!sortByName && <SortIndicator active={true} direction={sortDirection} />}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleSortDirection}
+                className="flex items-center gap-1 border-gray-300"
+              >
+                <span>{sortDirection === "asc" ? "Ascending" : "Descending"}</span>
+                <SortIndicator active={true} direction={sortDirection} />
+              </Button>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Filter:</span>
+              <Select
+                value={typeFilter || "all"}
+                onValueChange={handleTypeFilterChange}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <div className="flex items-center gap-2">
+                    <IconFilter className="h-4 w-4" />
+                    <SelectValue placeholder="Filter by type" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="income">Income Only</SelectItem>
+                  <SelectItem value="expense">Expenses Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
           <div className="rounded-lg border shadow-sm">
             <Table>
               <TableHeader>
@@ -123,7 +225,16 @@ export default function CategoriesPage() {
                       aria-label="Select all"
                     />
                   </TableHead>
-                  <TableHead>Name</TableHead>
+                  <TableHead>
+                    <Button 
+                      variant="ghost" 
+                      className="flex items-center gap-1 p-0 h-auto font-medium hover:bg-transparent"
+                      onClick={toggleSortByName}
+                    >
+                      <span>Name</span>
+                      {sortByName && <SortIndicator active={true} direction={sortDirection} />}
+                    </Button>
+                  </TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Nature</TableHead>
@@ -200,7 +311,9 @@ export default function CategoriesPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-6 text-muted-foreground h-[400px] align-middle">
-                      No categories found
+                      {typeFilter 
+                        ? `No ${typeFilter} categories found` 
+                        : 'No categories found'}
                     </TableCell>
                   </TableRow>
                 )}

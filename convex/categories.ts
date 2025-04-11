@@ -25,7 +25,12 @@ export const getAll = query({
 
 // Get all categories with pagination
 export const getAllPaginated = query({
-  args: { paginationOpts: paginationOptsValidator },
+  args: { 
+    paginationOpts: paginationOptsValidator,
+    sortByName: v.optional(v.boolean()),
+    sortDirection: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
+    type: v.optional(v.union(v.literal("income"), v.literal("expense")))
+  },
   returns: v.object({
     page: v.array(v.object({
       _id: v.id("categories"),
@@ -43,10 +48,47 @@ export const getAllPaginated = query({
     continueCursor: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
-    const paginationResult = await ctx.db
-      .query("categories")
-      .order("desc")
-      .paginate(args.paginationOpts);
+    // Default sort direction
+    const direction = args.sortDirection || "asc";
+    
+    // Create the appropriate query based on sort preferences and filters
+    let paginationResult;
+    
+    if (args.type) {
+      // If filtering by type
+      if (args.sortByName) {
+        // When filtering by type and sorting by name, we need to combine both operations
+        // First get filtered results by type
+        paginationResult = await ctx.db
+          .query("categories")
+          .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
+          .order(direction) // Sort within type filter
+          .paginate(args.paginationOpts);
+      } else {
+        // Just filter by type, sorted by creation time
+        paginationResult = await ctx.db
+          .query("categories")
+          .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"))
+          .order(direction)
+          .paginate(args.paginationOpts);
+      }
+    } else {
+      // No type filter
+      if (args.sortByName) {
+        // Sort by name only
+        paginationResult = await ctx.db
+          .query("categories")
+          .withIndex("by_name")
+          .order(direction)
+          .paginate(args.paginationOpts);
+      } else {
+        // Default sort by creation time
+        paginationResult = await ctx.db
+          .query("categories")
+          .order(direction === "asc" ? "asc" : "desc")
+          .paginate(args.paginationOpts);
+      }
+    }
     
     // Return only the fields our validator expects
     return {

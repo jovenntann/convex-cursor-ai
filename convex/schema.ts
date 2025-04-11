@@ -10,6 +10,7 @@ import { v } from "convex/values";
  * Categories table:
  * - List all categories of a specific type (income/expense) (by_type)
  * - Filter categories by type and nature (fixed/dynamic) (by_type_and_nature)
+ * - Sort categories by name (by_name)
  * - Update/delete categories (by ID)
  * 
  * Transactions table:
@@ -40,7 +41,8 @@ export default defineSchema({
     isActive: v.boolean(),
   })
     .index("by_type", ["type"])
-    .index("by_type_and_nature", ["type", "nature"]),
+    .index("by_type_and_nature", ["type", "nature"])
+    .index("by_name", ["name"]),
     
   // Transactions table (for category relationships)
   transactions: defineTable({
