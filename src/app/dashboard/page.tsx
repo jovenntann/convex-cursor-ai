@@ -1,25 +1,44 @@
 "use client";
+
 import { useUser, useClerk } from "@clerk/nextjs";
 import { api } from "@convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
-export default function Dashboard() {
+import { AppSidebar } from "@/components/app-sidebar"
+import { ChartAreaInteractive } from "@/components/chart-area-interactive"
+import { DataTable } from "@/components/data-table"
+import { SectionCards } from "@/components/section-cards"
+import { SiteHeader } from "@/components/site-header"
+import {
+  SidebarInset,
+  SidebarProvider,
+} from "@/components/ui/sidebar"
+
+import data from "./data.json"
+
+export default function Page() {
   const { user, isSignedIn, isLoaded } = useUser();
   const { signOut } = useClerk();
   const convexUser = useQuery(api.users.getUser);
   const storeUser = useMutation(api.users.store);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     // Only call storeUser if the user is signed in and we have a convexUser
     if (isSignedIn && isLoaded && user && convexUser !== undefined) {
       storeUser();
     }
   }, [isSignedIn, isLoaded, user, convexUser, storeUser]);
 
-  if (!isLoaded) {
-    return <div>Loading...</div>;
+  if (!isMounted || !isLoaded) {
+    return (
+      <div className="flex flex-col min-h-screen items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
   }
 
   if (!isSignedIn) {
@@ -33,33 +52,43 @@ export default function Dashboard() {
     );
   }
 
+  // Prepare user data for the sidebar
+  const userData = {
+    name: user?.firstName || "User",
+    email: user?.emailAddresses[0]?.emailAddress || "No email",
+    avatar: user?.imageUrl || "/avatars/default.jpg",
+  };
+
+  const handleLogout = () => signOut({ redirectUrl: '/' });
+
   return (
-    <div className="flex flex-col min-h-screen p-8 gap-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <button 
-          onClick={() => signOut({ redirectUrl: '/' })} 
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-        >
-          Logout
-        </button>
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4">Welcome, {user?.firstName}!</h2>
-        <div>
-          <p className="mb-2">
-            <strong>Email:</strong> {user?.emailAddresses[0]?.emailAddress}
-          </p>
-          <p className="mb-2">
-            <strong>User ID:</strong> {user?.id}
-          </p>
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar 
+        variant="inset" 
+        userData={userData} 
+        onLogout={handleLogout} 
+      />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col">
+          <div className="@container/main flex flex-1 flex-col gap-2">
+            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+              <SectionCards />
+              <div className="px-4 lg:px-6">
+                <ChartAreaInteractive />
+              </div>
+              <DataTable data={data} />
+            </div>
+          </div>
         </div>
-        <div className="mt-4">
-          <Link href="/" className="text-blue-500 hover:underline">
-            Go to Home
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-} 
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}
