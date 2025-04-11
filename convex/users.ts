@@ -26,10 +26,12 @@ export const getUserByToken = query({
 
 export const store = mutation({
   args: {},
+  returns: v.union(v.string(), v.null()),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Called storeUser without authentication present");
+      // Return null instead of throwing an error when authentication is not present
+      return null;
     }
 
     // Check if we've already stored this identity before
