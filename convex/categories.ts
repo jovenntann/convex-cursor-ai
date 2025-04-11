@@ -340,4 +340,14 @@ export const removeWithCascade = mutation({
       deletedTransactions: relatedTransactions.length,
     };
   },
+});
+
+// Simple delete function for categories (no cascade)
+export const remove = mutation({
+  args: { id: v.id("categories") },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+    return true;
+  },
 }); 

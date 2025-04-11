@@ -406,6 +406,13 @@ export default function CategoriesPage() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [dataRefreshKey, setDataRefreshKey] = useState(0);
+  const [categoryToDelete, setCategoryToDelete] = useState<{ id: Id<"categories">; name: string } | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [bulkDelete, setBulkDelete] = useState(false);
+  
+  // Get mutations
+  const deleteCategory = useMutation(api.categories.remove);
+  const deleteCategoryWithCascade = useMutation(api.categories.removeWithCascade);
   
   // Refresh data function - call this after creating or updating categories
   const refreshData = () => setDataRefreshKey(prev => prev + 1);
@@ -536,6 +543,72 @@ export default function CategoriesPage() {
       : <IconArrowDown className="h-5 w-5 text-blue-600 ml-1 font-bold" />;
   };
   
+  // Handle delete confirmation for a category
+  function handleDelete(id: Id<"categories">, name: string) {
+    setCategoryToDelete({ id, name });
+    setShowDeleteConfirm(true);
+    setBulkDelete(false);
+  }
+  
+  // Handle bulk delete confirmation
+  function handleBulkDelete() {
+    if (selectedRows.length === 0) return;
+    
+    setBulkDelete(true);
+    setShowDeleteConfirm(true);
+  }
+  
+  // Perform the delete after confirmation
+  async function confirmDelete() {
+    try {
+      if (bulkDelete) {
+        // Handle bulk delete
+        for (const id of selectedRows) {
+          await deleteCategory({ id: id as Id<"categories"> });
+        }
+        
+        toast.success(`Categories Deleted`, {
+          description: `${selectedRows.length} categories were successfully deleted`,
+          duration: 5000,
+        });
+        
+        // Clear the selection
+        setSelectedRows([]);
+      } else if (categoryToDelete) {
+        // Handle single delete
+        await deleteCategory({ id: categoryToDelete.id });
+        
+        toast.success(`Category Deleted`, {
+          description: `"${categoryToDelete.name}" was successfully deleted`,
+          duration: 5000,
+        });
+        
+        // Clear the selection if this category was selected
+        setSelectedRows(prev => prev.filter(id => id !== categoryToDelete.id));
+      }
+      
+      // Close the dialog and reset deletion state
+      setShowDeleteConfirm(false);
+      setCategoryToDelete(null);
+      setBulkDelete(false);
+      
+      // Refresh the data
+      refreshData();
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      toast.error("Failed to Delete Categories", {
+        description: "There was a problem deleting the categories. Please try again.",
+      });
+    }
+  }
+  
+  // Close the delete confirmation dialog
+  function cancelDelete() {
+    setShowDeleteConfirm(false);
+    setCategoryToDelete(null);
+    setBulkDelete(false);
+  }
+  
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -615,6 +688,28 @@ export default function CategoriesPage() {
           </div>
           
           <div className="rounded-lg border shadow-sm">
+            {/* Bulk Actions Bar */}
+            {selectedRows.length > 0 && (
+              <div className="flex items-center justify-between px-4 py-2 bg-muted">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">
+                    {selectedRows.length} {selectedRows.length === 1 ? 'item' : 'items'} selected
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="flex items-center gap-1"
+                    onClick={handleBulkDelete}
+                  >
+                    <IconTrash className="h-4 w-4" />
+                    Delete Selected
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             <Table>
               <TableHeader>
                 <TableRow>
@@ -707,7 +802,12 @@ export default function CategoriesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem>Edit</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-destructive" 
+                              onClick={() => handleDelete(category._id, category.name)}
+                            >
+                              Delete
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -783,6 +883,37 @@ export default function CategoriesPage() {
         onOpenChange={setShowCategoryForm} 
         onSuccess={refreshData}
       />
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete {bulkDelete ? 'Categories' : 'Category'}</DialogTitle>
+            <DialogDescription>
+              {bulkDelete 
+                ? `Are you sure you want to delete ${selectedRows.length} categories? This action cannot be undone.`
+                : `Are you sure you want to delete "${categoryToDelete?.name}"? This action cannot be undone.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex items-center gap-2 py-3">
+            <IconTrash className="h-5 w-5 text-destructive" />
+            <span className="text-sm text-muted-foreground">
+              All data associated with {bulkDelete ? 'these categories' : 'this category'} will be permanently deleted.
+            </span>
+          </div>
+          
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button type="button" variant="outline" onClick={cancelDelete}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={confirmDelete}>
+              Delete {bulkDelete ? 'Categories' : 'Category'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
