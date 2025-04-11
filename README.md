@@ -1,8 +1,16 @@
 # convex-ai
 
 - Add Convex Rules
-- Setup Convex MCP
-- Install and Initialize Convex Project
+
+# Setup MCP
+```
+#  This is important for the MCP to run
+npm install -g convex
+
+npx -y convex@latest mcp start
+```
+
+## Install and Initialize Convex Project https://docs.convex.dev/ai/convex-mcp-server
 
 ```
 npm install convex
