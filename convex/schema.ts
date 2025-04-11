@@ -36,6 +36,7 @@ export default defineSchema({
     type: v.union(v.literal("income"), v.literal("expense")),
     nature: v.union(v.literal("fixed"), v.literal("dynamic")),
     budget: v.optional(v.number()),
+    paymentDueDay: v.optional(v.number()), // Optional field for payment due day (1-31)
     icon: v.optional(v.string()),
     color: v.optional(v.string()),
     isActive: v.boolean(),
