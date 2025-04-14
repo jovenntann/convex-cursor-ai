@@ -76,6 +76,36 @@ The following components have been installed and are ready to use:
    - Supports various input types
    - Can be styled and customized using Tailwind classes
 
+4. Sidebar (`@/components/ui/sidebar.tsx`)
+   - A comprehensive sidebar navigation component
+   - Includes sub-components:
+     - Sidebar
+     - SidebarHeader
+     - SidebarContent
+     - SidebarFooter
+     - SidebarMenu
+     - SidebarMenuItem
+     - SidebarMenuButton
+   - Supports active states via the `isActive` prop
+   - Handles collapsible modes (full, icon, offcanvas)
+
+## Navigation with Active States
+
+We've implemented active state detection in our navigation components using ShadCN's sidebar components:
+
+1. The `SidebarMenuButton` component accepts an `isActive` prop that controls the active state styling
+2. When `isActive={true}`, the component applies the `data-active="true"` attribute
+3. This attribute is styled with the appropriate background and text colors based on the theme
+
+Example usage:
+```tsx
+<SidebarMenuButton asChild isActive={pathname === '/dashboard'}>
+  <Link href="/dashboard">Dashboard</Link>
+</SidebarMenuButton>
+```
+
+For more details on the navigation implementation, see [navigation.md](./navigation.md).
+
 ## Theme Customization
 
 The theme can be customized by modifying:
