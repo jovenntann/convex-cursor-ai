@@ -25,6 +25,7 @@ import { v } from "convex/values";
  * - View transactions chronologically (by_date)
  * - Track spending/income by category over time
  * - Support cascading delete when removing categories
+ * - Search transactions by description with type filtering (search_description)
  */
 export default defineSchema({
   users: defineTable({
@@ -66,5 +67,10 @@ export default defineSchema({
     // Other fields would be here in the full implementation
   })
     .index("by_category", ["categoryId"])
-    .index("by_date", ["date"]),
+    .index("by_date", ["date"])
+    .index("by_type", ["type"])
+    .searchIndex("search_description", {
+      searchField: "description",
+      filterFields: ["type"]
+    }),
 }); 
