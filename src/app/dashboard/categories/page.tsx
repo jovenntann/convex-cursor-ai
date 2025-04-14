@@ -505,6 +505,7 @@ export default function CategoriesPage() {
   const [pageSize, setPageSize] = useState(10);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sortByName, setSortByName] = useState(false);
+  const [sortByBudget, setSortByBudget] = useState(false);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [typeFilter, setTypeFilter] = useState<"income" | "expense" | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -540,6 +541,7 @@ export default function CategoriesPage() {
       cursor: cursor,
     },
     sortByName,
+    sortByBudget,
     sortDirection,
     ...(typeFilter ? { type: typeFilter } : {}),
     ...(debouncedSearchQuery ? { searchQuery: debouncedSearchQuery } : {})
@@ -584,16 +586,30 @@ export default function CategoriesPage() {
     } else {
       // Start sorting by name
       setSortByName(true);
+      setSortByBudget(false);
     }
     setCursor(null); // Reset to first page
   }
   
   function toggleSortByDate() {
-    if (!sortByName) {
+    if (!sortByName && !sortByBudget) {
       // If already sorting by date, toggle direction
       setSortDirection(prev => prev === "asc" ? "desc" : "asc");
     } else {
       // Start sorting by date
+      setSortByName(false);
+      setSortByBudget(false);
+    }
+    setCursor(null); // Reset to first page
+  }
+
+  function toggleSortByBudget() {
+    if (sortByBudget) {
+      // If already sorting by budget, toggle direction
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      // Start sorting by budget
+      setSortByBudget(true);
       setSortByName(false);
     }
     setCursor(null); // Reset to first page
@@ -606,6 +622,7 @@ export default function CategoriesPage() {
   
   function resetSort() {
     setSortByName(false);
+    setSortByBudget(false);
     setSortDirection("asc");
     setCursor(null); // Reset to first page
   }
@@ -762,13 +779,22 @@ export default function CategoriesPage() {
                 {sortByName && <SortIndicator active={true} direction={sortDirection} />}
               </Button>
               <Button 
-                variant={!sortByName ? "default" : "outline"} 
+                variant={!sortByName && !sortByBudget ? "default" : "outline"} 
                 size="sm"
                 onClick={toggleSortByDate}
-                className={`flex items-center gap-1 ${!sortByName ? "bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-400" : ""}`}
+                className={`flex items-center gap-1 ${!sortByName && !sortByBudget ? "bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-400" : ""}`}
               >
                 <span className="font-medium">By Date</span>
-                {!sortByName && <SortIndicator active={true} direction={sortDirection} />}
+                {!sortByName && !sortByBudget && <SortIndicator active={true} direction={sortDirection} />}
+              </Button>
+              <Button 
+                variant={sortByBudget ? "default" : "outline"} 
+                size="sm"
+                onClick={toggleSortByBudget}
+                className={`flex items-center gap-1 ${sortByBudget ? "bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-400" : ""}`}
+              >
+                <span className="font-medium">By Budget</span>
+                {sortByBudget && <SortIndicator active={true} direction={sortDirection} />}
               </Button>
             </div>
             

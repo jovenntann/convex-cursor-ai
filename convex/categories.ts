@@ -30,6 +30,7 @@ export const getAllPaginated = query({
   args: { 
     paginationOpts: paginationOptsValidator,
     sortByName: v.optional(v.boolean()),
+    sortByBudget: v.optional(v.boolean()),
     sortDirection: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
     type: v.optional(v.union(v.literal("income"), v.literal("expense"))),
     searchQuery: v.optional(v.string())
@@ -78,26 +79,40 @@ export const getAllPaginated = query({
           );
       }
       
-      // If we want to sort by name rather than relevance
-      if (args.sortByName) {
+      // If we want to sort by something other than search relevance
+      if (args.sortByName || args.sortByBudget) {
         resultsNeedSorting = true;
       }
       
       // Get results with pagination for search query
       const paginationResult = await query.paginate(args.paginationOpts);
       
-      // If we need to sort by name instead of search relevance
+      // If we need to sort by name or budget instead of search relevance
       if (resultsNeedSorting) {
-        const sortedPage = [...paginationResult.page].sort((a, b) => {
-          if (direction === "asc") {
-            return a.name.localeCompare(b.name);
-          } else {
-            return b.name.localeCompare(a.name);
-          }
-        });
+        let sortedPage;
+        if (args.sortByName) {
+          sortedPage = [...paginationResult.page].sort((a, b) => {
+            if (direction === "asc") {
+              return a.name.localeCompare(b.name);
+            } else {
+              return b.name.localeCompare(a.name);
+            }
+          });
+        } else if (args.sortByBudget) {
+          sortedPage = [...paginationResult.page].sort((a, b) => {
+            const budgetA = a.budget ?? 0;
+            const budgetB = b.budget ?? 0;
+            
+            if (direction === "asc") {
+              return budgetA - budgetB;
+            } else {
+              return budgetB - budgetA;
+            }
+          });
+        }
         
         return {
-          page: sortedPage,
+          page: sortedPage!,
           isDone: paginationResult.isDone,
           continueCursor: paginationResult.continueCursor
         };
@@ -124,23 +139,48 @@ export const getAllPaginated = query({
             .query("categories")
             .withIndex("by_name");
         } else {
-          // Default sort
+          // Default sort or budget sort (we'll handle budget sort in memory)
           query = ctx.db
             .query("categories");
         }
       }
       
-      // Apply sorting for non-search queries
-      query = query.order(direction);
-      
       // Get results with pagination
-      const paginationResult = await query.paginate(args.paginationOpts);
+      let paginationResult;
       
-      return {
-        page: paginationResult.page,
-        isDone: paginationResult.isDone,
-        continueCursor: paginationResult.continueCursor
-      };
+      // For budget sorting, we need to fetch all results and sort in memory
+      if (args.sortByBudget) {
+        // First get all the results
+        paginationResult = await query.paginate(args.paginationOpts);
+        
+        // Sort by budget
+        const sortedPage = [...paginationResult.page].sort((a, b) => {
+          const budgetA = a.budget ?? 0;
+          const budgetB = b.budget ?? 0;
+          
+          if (direction === "asc") {
+            return budgetA - budgetB;
+          } else {
+            return budgetB - budgetA;
+          }
+        });
+        
+        return {
+          page: sortedPage,
+          isDone: paginationResult.isDone,
+          continueCursor: paginationResult.continueCursor
+        };
+      } else {
+        // Apply sorting for non-search, non-budget queries
+        query = query.order(direction);
+        paginationResult = await query.paginate(args.paginationOpts);
+        
+        return {
+          page: paginationResult.page,
+          isDone: paginationResult.isDone,
+          continueCursor: paginationResult.continueCursor
+        };
+      }
     }
   },
 });
