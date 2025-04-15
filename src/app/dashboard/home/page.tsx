@@ -6,18 +6,44 @@ import { useQuery } from "convex/react";
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { DataTable } from "@/components/data-table"
 import { SectionCards } from "@/components/section-cards"
-
-import data from "./data.json"
+import { useState } from "react";
 
 export default function HomePage() {
+  // Get recent transactions with their categories
+  const transactions = useQuery(api.transactions.getWithCategory, { limit: 10 });
+  
+  // Get counts for summary statistics
+  const totalTransactions = useQuery(api.transactions.count, {});
+  const incomeCount = useQuery(api.transactions.count, { type: "income" });
+  const expenseCount = useQuery(api.transactions.count, { type: "expense" });
+  
+  // Get all categories
+  const categories = useQuery(api.categories.getAll);
+  
+  // Format transactions for data table
+  const tableData = transactions ? transactions.map((transaction, index) => ({
+    id: index + 1,
+    header: transaction.description,
+    type: transaction.type,
+    status: transaction.amount > 0 ? "Done" : "In Process",
+    target: transaction.category.name,
+    limit: `$${Math.abs(transaction.amount).toFixed(2)}`,
+    reviewer: new Date(transaction.date).toLocaleDateString()
+  })) : [];
+
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <SectionCards />
+        <SectionCards 
+          transactionCount={totalTransactions || 0}
+          incomeCount={incomeCount || 0}
+          expenseCount={expenseCount || 0}
+          categoryCount={categories?.length || 0}
+        />
         <div className="px-4 lg:px-6">
-          <ChartAreaInteractive />
+          <ChartAreaInteractive transactions={transactions || []} />
         </div>
-        <DataTable data={data} />
+        <DataTable data={tableData} />
       </div>
     </div>
   )
