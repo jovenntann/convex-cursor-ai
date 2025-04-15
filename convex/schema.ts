@@ -8,9 +8,10 @@ import { v } from "convex/values";
  * - Authenticate users by token identifier (by_token)
  * 
  * Categories table:
- * - List all categories of a specific type (income/expense) (by_type)
- * - Filter categories by type and nature (fixed/dynamic) (by_type_and_nature)
- * - Sort categories by name (by_name)
+ * - List all categories of a specific user (by_userId)
+ * - List all categories of a specific user and type (by_userId_and_type)
+ * - Filter categories by user, type and nature (by_userId_type_and_nature)
+ * - Sort categories by name for a specific user (by_userId_and_name)
  * - Update/delete categories (by ID)
  * - Search categories by name with type filtering (search_name)
  * - Full-text search with fuzzy matching on category names
@@ -39,6 +40,7 @@ export default defineSchema({
   
   // Categories table
   categories: defineTable({
+    userId: v.string(), // Added userId field for ownership
     name: v.string(),
     description: v.string(),
     type: v.union(v.literal("income"), v.literal("expense")),
@@ -49,16 +51,18 @@ export default defineSchema({
     color: v.optional(v.string()),
     isActive: v.boolean(),
   })
-    .index("by_type", ["type"])
-    .index("by_type_and_nature", ["type", "nature"])
-    .index("by_name", ["name"])
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_type", ["userId", "type"])
+    .index("by_userId_type_and_nature", ["userId", "type", "nature"])
+    .index("by_userId_and_name", ["userId", "name"])
     .searchIndex("search_name", {
       searchField: "name",
-      filterFields: ["type"]
+      filterFields: ["userId", "type"]
     }),
     
   // Transactions table (for category relationships)
   transactions: defineTable({
+    userId: v.string(), // Added userId field for ownership
     categoryId: v.id("categories"),
     amount: v.number(),
     description: v.string(),
@@ -67,11 +71,15 @@ export default defineSchema({
     receiptId: v.optional(v.id("_storage")), // Add this to store file ID
     // Other fields would be here in the full implementation
   })
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_category", ["userId", "categoryId"])
+    .index("by_userId_and_date", ["userId", "date"])
+    .index("by_userId_and_type", ["userId", "type"])
     .index("by_category", ["categoryId"])
     .index("by_date", ["date"])
     .index("by_type", ["type"])
     .searchIndex("search_description", {
       searchField: "description",
-      filterFields: ["type"]
+      filterFields: ["userId", "type"]
     }),
 }); 

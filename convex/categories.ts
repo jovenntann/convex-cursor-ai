@@ -3,13 +3,15 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
+import { ConvexError } from "convex/values";
 
-// Get all categories
+// Get all categories for the authenticated user
 export const getAll = query({
   args: {},
   returns: v.array(v.object({
     _id: v.id("categories"),
     _creationTime: v.number(),
+    userId: v.string(),
     name: v.string(),
     description: v.string(),
     type: v.union(v.literal("income"), v.literal("expense")),
@@ -21,11 +23,20 @@ export const getAll = query({
     isActive: v.boolean(),
   })),
   handler: async (ctx) => {
-    return await ctx.db.query("categories").collect();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    return await ctx.db
+      .query("categories")
+      .withIndex("by_userId", q => q.eq("userId", userId))
+      .collect();
   },
 });
 
-// Get all categories with pagination
+// Get all categories with pagination for the authenticated user
 export const getAllPaginated = query({
   args: { 
     paginationOpts: paginationOptsValidator,
@@ -39,6 +50,7 @@ export const getAllPaginated = query({
     page: v.array(v.object({
       _id: v.id("categories"),
       _creationTime: v.number(),
+      userId: v.string(),
       name: v.string(),
       description: v.string(),
       type: v.union(v.literal("income"), v.literal("expense")),
@@ -53,6 +65,12 @@ export const getAllPaginated = query({
     continueCursor: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     // Default sort direction
     const direction = args.sortDirection || "asc";
     const searchQuery = args.searchQuery?.trim();
@@ -69,6 +87,7 @@ export const getAllPaginated = query({
           .query("categories")
           .withSearchIndex("search_name", q => 
             q.search("name", searchQuery)
+             .eq("userId", userId)
              .eq("type", args.type as "income" | "expense")
           );
       } else {
@@ -76,6 +95,7 @@ export const getAllPaginated = query({
           .query("categories")
           .withSearchIndex("search_name", q => 
             q.search("name", searchQuery)
+             .eq("userId", userId)
           );
       }
       
@@ -130,18 +150,22 @@ export const getAllPaginated = query({
         // If filtering by type
         query = ctx.db
           .query("categories")
-          .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"));
+          .withIndex("by_userId_and_type", q => 
+            q.eq("userId", userId)
+             .eq("type", args.type as "income" | "expense")
+          );
       } else {
         // No type filter
         if (args.sortByName) {
           // Name sorting
           query = ctx.db
             .query("categories")
-            .withIndex("by_name");
+            .withIndex("by_userId_and_name", q => q.eq("userId", userId));
         } else {
           // Default sort or budget sort (we'll handle budget sort in memory)
           query = ctx.db
-            .query("categories");
+            .query("categories")
+            .withIndex("by_userId", q => q.eq("userId", userId));
         }
       }
       
@@ -185,12 +209,13 @@ export const getAllPaginated = query({
   },
 });
 
-// Get categories by type
+// Get categories by type for the authenticated user
 export const getByType = query({
   args: { type: v.union(v.literal("income"), v.literal("expense")) },
   returns: v.array(v.object({
     _id: v.id("categories"),
     _creationTime: v.number(),
+    userId: v.string(),
     name: v.string(),
     description: v.string(),
     type: v.union(v.literal("income"), v.literal("expense")),
@@ -202,14 +227,23 @@ export const getByType = query({
     isActive: v.boolean(),
   })),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     return await ctx.db
       .query("categories")
-      .withIndex("by_type", (q) => q.eq("type", args.type))
+      .withIndex("by_userId_and_type", q => 
+        q.eq("userId", userId)
+         .eq("type", args.type)
+      )
       .collect();
   },
 });
 
-// Get categories by type with pagination
+// Get categories by type with pagination for the authenticated user
 export const getByTypePaginated = query({
   args: { 
     type: v.union(v.literal("income"), v.literal("expense")),
@@ -219,6 +253,7 @@ export const getByTypePaginated = query({
     page: v.array(v.object({
       _id: v.id("categories"),
       _creationTime: v.number(),
+      userId: v.string(),
       name: v.string(),
       description: v.string(),
       type: v.union(v.literal("income"), v.literal("expense")),
@@ -233,9 +268,18 @@ export const getByTypePaginated = query({
     continueCursor: v.union(v.string(), v.null())
   }),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     const paginationResult = await ctx.db
       .query("categories")
-      .withIndex("by_type", (q) => q.eq("type", args.type))
+      .withIndex("by_userId_and_type", q => 
+        q.eq("userId", userId)
+         .eq("type", args.type)
+      )
       .order("desc")
       .paginate(args.paginationOpts);
     
@@ -248,13 +292,14 @@ export const getByTypePaginated = query({
   },
 });
 
-// Get category by ID
+// Get category by ID (ensuring it belongs to the authenticated user)
 export const getById = query({
   args: { id: v.id("categories") },
   returns: v.union(
     v.object({
       _id: v.id("categories"),
       _creationTime: v.number(),
+      userId: v.string(),
       name: v.string(),
       description: v.string(),
       type: v.union(v.literal("income"), v.literal("expense")),
@@ -268,29 +313,54 @@ export const getById = query({
     v.null()
   ),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    const category = await ctx.db.get(args.id);
+    
+    // Return null if category doesn't exist or doesn't belong to user
+    if (!category || category.userId !== userId) {
+      return null;
+    }
+    
+    return category;
   },
 });
 
-// Count categories (useful for pagination UI)
+// Count categories for the authenticated user (useful for pagination UI)
 export const count = query({
   args: { type: v.optional(v.union(v.literal("income"), v.literal("expense"))) },
   returns: v.number(),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     if (args.type !== undefined) {
       const categories = await ctx.db
         .query("categories")
-        .withIndex("by_type", (q) => q.eq("type", args.type as "income" | "expense"))
+        .withIndex("by_userId_and_type", q => 
+          q.eq("userId", userId)
+           .eq("type", args.type as "income" | "expense")
+        )
         .collect();
       return categories.length;
     } else {
-      const categories = await ctx.db.query("categories").collect();
+      const categories = await ctx.db
+        .query("categories")
+        .withIndex("by_userId", q => q.eq("userId", userId))
+        .collect();
       return categories.length;
     }
   },
 });
 
-// Create a new category
+// Create a new category for the authenticated user
 export const create = mutation({
   args: {
     name: v.string(),
@@ -304,7 +374,14 @@ export const create = mutation({
   },
   returns: v.id("categories"),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     return await ctx.db.insert("categories", {
+      userId,
       name: args.name,
       description: args.description,
       type: args.type,
@@ -318,7 +395,7 @@ export const create = mutation({
   },
 });
 
-// Update a category
+// Update a category (ensuring it belongs to the authenticated user)
 export const update = mutation({
   args: {
     id: v.id("categories"),
@@ -334,20 +411,48 @@ export const update = mutation({
   },
   returns: v.id("categories"),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     const { id, ...updates } = args;
+    
+    // Verify the category belongs to the user
+    const category = await ctx.db.get(id);
+    if (!category || category.userId !== userId) {
+      throw new ConvexError("Category not found or access denied");
+    }
+    
     await ctx.db.patch(id, updates);
     return id;
   },
 });
 
-// Count transactions using a category
+// Count transactions using a category for the authenticated user
 export const countRelatedTransactions = query({
   args: { categoryId: v.id("categories") },
   returns: v.number(),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    // Verify the category belongs to the user
+    const category = await ctx.db.get(args.categoryId);
+    if (!category || category.userId !== userId) {
+      throw new ConvexError("Category not found or access denied");
+    }
+    
     const transactions = await ctx.db
       .query("transactions")
-      .withIndex("by_category", (q) => q.eq("categoryId", args.categoryId))
+      .withIndex("by_userId_and_category", q => 
+        q.eq("userId", userId)
+         .eq("categoryId", args.categoryId)
+      )
       .collect();
     
     return transactions.length;
@@ -362,10 +467,25 @@ export const removeWithCascade = mutation({
     deletedTransactions: v.number(),
   }),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    // Verify the category belongs to the user
+    const category = await ctx.db.get(args.id);
+    if (!category || category.userId !== userId) {
+      throw new ConvexError("Category not found or access denied");
+    }
+    
     // First find all transactions using this category
     const relatedTransactions = await ctx.db
       .query("transactions")
-      .withIndex("by_category", (q) => q.eq("categoryId", args.id))
+      .withIndex("by_userId_and_category", q => 
+        q.eq("userId", userId)
+         .eq("categoryId", args.id)
+      )
       .collect();
     
     // Delete all related transactions
@@ -388,6 +508,18 @@ export const remove = mutation({
   args: { id: v.id("categories") },
   returns: v.boolean(),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    // Verify the category belongs to the user
+    const category = await ctx.db.get(args.id);
+    if (!category || category.userId !== userId) {
+      throw new ConvexError("Category not found or access denied");
+    }
+    
     await ctx.db.delete(args.id);
     return true;
   },

@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { Id } from "./_generated/dataModel";
 import { Doc } from "./_generated/dataModel";
+import { ConvexError } from "convex/values";
 
 interface TransactionWithCategory extends Doc<"transactions"> {
   category: {
@@ -25,7 +26,14 @@ export const create = mutation({
   },
   returns: v.id("transactions"),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     return await ctx.db.insert("transactions", {
+      userId,
       categoryId: args.categoryId,
       amount: args.amount,
       description: args.description,
@@ -45,6 +53,7 @@ export const getWithCategory = query({
     v.object({
       _id: v.id("transactions"),
       _creationTime: v.number(),
+      userId: v.string(),
       categoryId: v.id("categories"),
       amount: v.number(),
       description: v.string(),
@@ -60,11 +69,18 @@ export const getWithCategory = query({
     })
   ),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     const limit = args.limit ?? 10;
     
     // Get transactions ordered by creation time
     const transactions = await ctx.db
       .query("transactions")
+      .withIndex("by_userId", q => q.eq("userId", userId))
       .order("desc")
       .take(limit);
     
@@ -101,9 +117,18 @@ export const sumIncome = query({
   },
   returns: v.number(),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     let query = ctx.db
       .query("transactions")
-      .withIndex("by_type", q => q.eq("type", "income"));
+      .withIndex("by_userId_and_type", q => 
+        q.eq("userId", userId)
+         .eq("type", "income")
+      );
     
     // Apply date range filter if provided
     if (args.startDate !== undefined && args.endDate !== undefined) {
@@ -135,9 +160,18 @@ export const sumExpense = query({
   },
   returns: v.number(),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     let query = ctx.db
       .query("transactions")
-      .withIndex("by_type", q => q.eq("type", "expense"));
+      .withIndex("by_userId_and_type", q => 
+        q.eq("userId", userId)
+         .eq("type", "expense")
+      );
     
     // Apply date range filter if provided
     if (args.startDate !== undefined && args.endDate !== undefined) {
@@ -172,13 +206,25 @@ export const getSummary = query({
     netAmount: v.number()
   }),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     let incomeQuery = ctx.db
       .query("transactions")
-      .withIndex("by_type", q => q.eq("type", "income"));
+      .withIndex("by_userId_and_type", q => 
+        q.eq("userId", userId)
+         .eq("type", "income")
+      );
     
     let expenseQuery = ctx.db
       .query("transactions")
-      .withIndex("by_type", q => q.eq("type", "expense"));
+      .withIndex("by_userId_and_type", q => 
+        q.eq("userId", userId)
+         .eq("type", "expense")
+      );
     
     // Apply date range filter if provided
     if (args.startDate !== undefined && args.endDate !== undefined) {
@@ -227,6 +273,7 @@ export const getAllPaginated = query({
     page: v.array(v.object({
       _id: v.id("transactions"),
       _creationTime: v.number(),
+      userId: v.string(),
       categoryId: v.id("categories"),
       amount: v.number(),
       description: v.string(),
@@ -244,23 +291,29 @@ export const getAllPaginated = query({
     continueCursor: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
     // Default sort direction
     const direction = args.sortDirection || "asc";
     const searchQuery = args.searchQuery?.trim();
     
     // Build our query with the appropriate filters and sorting
+    let query;
     let resultsNeedSorting = false;
-    let paginationResult;
     
-    // If search query is provided
+    // If search query is provided, use the search index
     if (searchQuery && searchQuery.length > 0) {
-      // Use the search index
-      let query;
+      // Use search index with optional type filter
       if (args.type) {
         query = ctx.db
           .query("transactions")
           .withSearchIndex("search_description", q => 
             q.search("description", searchQuery)
+             .eq("userId", userId)
              .eq("type", args.type as "income" | "expense")
           );
       } else {
@@ -268,116 +321,58 @@ export const getAllPaginated = query({
           .query("transactions")
           .withSearchIndex("search_description", q => 
             q.search("description", searchQuery)
+             .eq("userId", userId)
           );
       }
-      
-      // If we want specific sorting
-      if (args.sortByAmount || args.sortByDescription || args.sortByDate) {
-        resultsNeedSorting = true;
-      }
-      
-      // Paginate the search results
-      paginationResult = await query.paginate(args.paginationOpts);
     } 
-    // Apply category filter if provided
-    else if (args.categoryId) {
-      let query = ctx.db
-        .query("transactions")
-        .withIndex("by_category", q => q.eq("categoryId", args.categoryId as Id<"categories">));
-        
-      // Apply type filter if provided along with category
-      if (args.type) {
-        query = query.filter(q => q.eq(q.field("type"), args.type as "income" | "expense"));
-      }
-      
-      // Apply ordering and paginate
-      paginationResult = await query.order(direction).paginate(args.paginationOpts);
-    }
-    // Apply date range filter if provided
-    else if (args.startDate !== undefined && args.endDate !== undefined) {
-      // Ensure we have valid numbers for the date range
-      const startDate = args.startDate;
-      const endDate = args.endDate;
-      
-      let query = ctx.db
-        .query("transactions")
-        .withIndex("by_date", q => 
-          q.gte("date", startDate).lte("date", endDate)
-        );
-          
-      // Apply type filter if provided along with date range
-      if (args.type) {
-        query = query.filter(q => q.eq(q.field("type"), args.type as "income" | "expense"));
-      }
-      
-      // Apply ordering and paginate
-      paginationResult = await query.order(direction).paginate(args.paginationOpts);
-    }
-    // Otherwise use regular indexes with filtering
+    // Otherwise use regular indexes with sorting
     else {
-      let query;
-      
       if (args.type) {
-        // Filter by type
+        // If filtering by type
         query = ctx.db
           .query("transactions")
-          .withIndex("by_type", q => q.eq("type", args.type as "income" | "expense"));
-          
-        // Apply ordering and paginate
-        paginationResult = await query.order(direction).paginate(args.paginationOpts);
+          .withIndex("by_userId_and_type", q => 
+            q.eq("userId", userId)
+             .eq("type", args.type as "income" | "expense")
+          );
       } else if (args.sortByDate) {
-        // Sort by date using the by_date index
+        // If sorting by date
         query = ctx.db
           .query("transactions")
-          .withIndex("by_date");
-          
-        // Apply ordering and paginate
-        paginationResult = await query.order(direction).paginate(args.paginationOpts);
+          .withIndex("by_userId_and_date", q => q.eq("userId", userId));
+      } else if (args.categoryId) {
+        // If filtering by category
+        query = ctx.db
+          .query("transactions")
+          .withIndex("by_userId_and_category", q => 
+            q.eq("userId", userId)
+             .eq("categoryId", args.categoryId as Id<"categories">)
+          );
       } else {
-        // Default sorting by creation time
+        // Default sort (by creation time)
         query = ctx.db
-          .query("transactions");
-          
-        // Apply ordering and paginate
-        paginationResult = await query.order(direction).paginate(args.paginationOpts);
+          .query("transactions")
+          .withIndex("by_userId", q => q.eq("userId", userId));
       }
+      
+      // Apply sorting direction if not using the search index
+      query = query.order(direction);
     }
     
-    // Process the results
-    let transactionsToProcess = paginationResult.page;
-    
-    // Apply custom in-memory sorting if needed
-    if (resultsNeedSorting || args.sortByAmount || args.sortByDescription) {
-      if (args.sortByAmount) {
-        transactionsToProcess.sort((a: Doc<"transactions">, b: Doc<"transactions">) => {
-          if (direction === "asc") {
-            return a.amount - b.amount;
-          } else {
-            return b.amount - a.amount;
-          }
-        });
-      } else if (args.sortByDescription) {
-        transactionsToProcess.sort((a: Doc<"transactions">, b: Doc<"transactions">) => {
-          if (direction === "asc") {
-            return a.description.localeCompare(b.description);
-          } else {
-            return b.description.localeCompare(a.description);
-          }
-        });
-      } else if (args.sortByDate) {
-        transactionsToProcess.sort((a: Doc<"transactions">, b: Doc<"transactions">) => {
-          if (direction === "asc") {
-            return a.date - b.date;
-          } else {
-            return b.date - a.date;
-          }
-        });
-      }
+    // Apply date range filter if provided
+    if (args.startDate !== undefined && args.endDate !== undefined) {
+      query = query.filter(q => 
+        q.gte(q.field("date"), args.startDate as number) && 
+        q.lte(q.field("date"), args.endDate as number)
+      );
     }
+    
+    // Get results with pagination
+    const paginationResult = await query.paginate(args.paginationOpts);
     
     // Fetch category details for each transaction
     const transactionsWithCategories = await Promise.all(
-      transactionsToProcess.map(async (transaction: Doc<"transactions">) => {
+      paginationResult.page.map(async (transaction) => {
         const category = await ctx.db.get(transaction.categoryId);
         
         return {
@@ -393,9 +388,41 @@ export const getAllPaginated = query({
             icon: undefined,
             color: undefined
           }
-        } as TransactionWithCategory;
+        };
       })
     );
+    
+    // Apply in-memory sorting if needed and not already sorted by the database
+    if (args.sortByAmount || (args.sortByDescription && !searchQuery)) {
+      let sortedTransactions;
+      
+      if (args.sortByAmount) {
+        sortedTransactions = [...transactionsWithCategories].sort((a, b) => {
+          const amountA = Math.abs(a.amount);
+          const amountB = Math.abs(b.amount);
+          
+          if (direction === "asc") {
+            return amountA - amountB;
+          } else {
+            return amountB - amountA;
+          }
+        });
+      } else if (args.sortByDescription) {
+        sortedTransactions = [...transactionsWithCategories].sort((a, b) => {
+          if (direction === "asc") {
+            return a.description.localeCompare(b.description);
+          } else {
+            return b.description.localeCompare(a.description);
+          }
+        });
+      }
+      
+      return {
+        page: sortedTransactions!,
+        isDone: paginationResult.isDone,
+        continueCursor: paginationResult.continueCursor
+      };
+    }
     
     return {
       page: transactionsWithCategories,
