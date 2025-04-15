@@ -8,11 +8,22 @@ import {
   IconTrash, 
   IconDownload,
   IconChevronLeft,
-  IconChevronRight
+  IconChevronRight,
+  IconEye
 } from "@tabler/icons-react";
 import { Id } from "@convex/_generated/dataModel";
 import { format } from "date-fns";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@convex/_generated/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface TransactionTileViewProps {
   page: any[];
@@ -43,6 +54,15 @@ export function TransactionTileView({
   onPreviousPage,
   isFirstPage,
 }: TransactionTileViewProps) {
+  const [selectedReceiptId, setSelectedReceiptId] = useState<Id<"_storage"> | null>(null);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  
+  // Get receipt URL with useQuery
+  const receiptUrl = useQuery(
+    api.transactions.getReceiptUrl, 
+    selectedReceiptId ? { receiptId: selectedReceiptId } : "skip"
+  );
+
   // Format date for display
   function formatDate(timestamp: number) {
     return format(new Date(timestamp), "dd MMM yyyy, HH:mm");
@@ -62,6 +82,14 @@ export function TransactionTileView({
     return id.slice(-12).toUpperCase();
   }
 
+  // Show receipt in dialog
+  function showReceipt(receiptId: Id<"_storage"> | undefined) {
+    if (receiptId) {
+      setSelectedReceiptId(receiptId);
+      setReceiptDialogOpen(true);
+    }
+  }
+
   if (!page || page.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10">
@@ -72,77 +100,23 @@ export function TransactionTileView({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
         {page.map((transaction) => (
           <Card 
             key={transaction._id}
-            className={`overflow-hidden transition-all ${transaction.type === "income" ? "border-green-200" : "border-red-200"}`}
+            className={`overflow-hidden border ${transaction.type === "income" ? "bg-white border-gray-100" : "bg-white border-gray-100"}`}
           >
-            <CardHeader className={`${transaction.type === "income" ? "bg-green-50" : "bg-red-50"} py-4 px-4 gap-0 flex flex-col items-center justify-center`}>
+            <CardHeader className={`py-6 px-4 gap-2 flex flex-col items-center justify-center relative`}>
               <div className="mb-2">
-                <span className="text-3xl">
+                <span className="text-4xl">
                   {transaction.category.icon || (transaction.type === "income" ? "💰" : "💸")}
                 </span>
               </div>
-              <CardTitle className="text-center text-lg">
-                Payment {transaction.type === "income" ? "Received" : "Sent"}!
+              <CardTitle className="text-center text-xl">
+                {transaction.type === "income" ? "Income" : "Expense"}
               </CardTitle>
-              <span className={`text-2xl font-bold ${transaction.type === "income" ? "text-green-600" : "text-red-600"} mt-1`}>
-                {formatAmount(transaction.amount)}
-              </span>
-            </CardHeader>
-            
-            <CardContent className="py-4 px-4 flex flex-col gap-3">
-              <div className="grid grid-cols-[1fr_1fr] gap-2">
-                <div>
-                  <div className="text-xs text-muted-foreground">Ref Number</div>
-                  <div className="text-sm font-medium">{generateRefNumber(transaction._id)}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Payment Time</div>
-                  <div className="text-sm font-medium">{formatDate(transaction.date)}</div>
-                </div>
-              </div>
               
-              <div className="grid grid-cols-[1fr_1fr] gap-2">
-                <div>
-                  <div className="text-xs text-muted-foreground">Payment Method</div>
-                  <div className="text-sm font-medium">{transaction.category.name}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Sender Name</div>
-                  <div className="text-sm font-medium truncate">
-                    {transaction.description.length > 20 
-                      ? transaction.description.substring(0, 20) + "..." 
-                      : transaction.description}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-1">
-                <div className="text-xs text-muted-foreground">Description</div>
-                <div className="text-sm font-medium">{transaction.description}</div>
-              </div>
-            </CardContent>
-            
-            <CardFooter className="px-4 py-3 border-t flex justify-between items-center bg-muted/50">
-              <Badge 
-                variant="outline" 
-                className={`text-xs ${transaction.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
-              >
-                {transaction.type}
-              </Badge>
-              
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8"
-                  title="Download Receipt"
-                >
-                  <IconDownload className="h-4 w-4" />
-                </Button>
-                
+              <div className="absolute right-3 top-3">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -165,10 +139,94 @@ export function TransactionTileView({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+            </CardHeader>
+            
+            <div className="w-full border-t border-gray-100"></div>
+            
+            <CardContent className="p-0">
+              <div className="pt-4 text-center">
+                <div className="text-sm text-muted-foreground">
+                  Total Amount
+                </div>
+                <div className={`text-2xl font-bold mt-1 ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}>
+                  {formatAmount(transaction.amount)}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 mt-4 px-3">
+                <div className="rounded-lg border border-gray-100 p-3">
+                  <div className="text-xs text-muted-foreground">Ref Number</div>
+                  <div className="text-sm font-medium">{generateRefNumber(transaction._id)}</div>
+                </div>
+                <div className="rounded-lg border border-gray-100 p-3">
+                  <div className="text-xs text-muted-foreground">Transaction Date</div>
+                  <div className="text-sm font-medium">{format(new Date(transaction.date), "dd MMM yyyy")}</div>
+                </div>
+                <div className="rounded-lg border border-gray-100 p-3">
+                  <div className="text-xs text-muted-foreground">Category</div>
+                  <div className="text-sm font-medium">{transaction.category.name}</div>
+                </div>
+                <div className="rounded-lg border border-gray-100 p-3">
+                  <div className="text-xs text-muted-foreground">Description</div>
+                  <div className="text-sm font-medium truncate">
+                    {transaction.description}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            
+            <CardFooter className="p-4 mt-3 flex justify-center">
+              {transaction.receiptId ? (
+                <Button 
+                  variant="outline"
+                  className={`w-full flex items-center justify-center gap-2 ${transaction.type === "income" ? "border-green-200 hover:bg-green-50" : "border-red-200 hover:bg-red-50"}`}
+                  onClick={() => showReceipt(transaction.receiptId)}
+                >
+                  <IconEye className="h-4 w-4" />
+                  Show Receipt
+                </Button>
+              ) : (
+                <Button 
+                  variant="outline"
+                  className={`w-full flex items-center justify-center gap-2 opacity-50 cursor-not-allowed ${transaction.type === "income" ? "border-green-200" : "border-red-200"}`}
+                  disabled
+                >
+                  <IconEye className="h-4 w-4" />
+                  No Receipt Available
+                </Button>
+              )}
             </CardFooter>
           </Card>
         ))}
       </div>
+      
+      {/* Receipt Dialog */}
+      <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transaction Receipt</DialogTitle>
+            <DialogDescription>
+              View the receipt for this transaction.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center py-4">
+            {receiptUrl ? (
+              <img
+                src={receiptUrl}
+                alt="Transaction Receipt"
+                className="max-w-full max-h-[500px] object-contain rounded-md border"
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-2 py-4">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                  <IconDownload className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground">Loading receipt...</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
       
       {/* Pagination */}
       <div className="flex items-center justify-between border-t pt-4">
