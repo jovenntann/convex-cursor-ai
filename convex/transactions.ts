@@ -545,4 +545,105 @@ export const getReceiptUrl = query({
   handler: async (ctx, args) => {
     return await ctx.storage.getUrl(args.receiptId);
   },
+});
+
+// Get all transactions with receipts (paginated)
+export const getReceiptsPaginated = query({
+  args: { 
+    paginationOpts: paginationOptsValidator,
+    categoryId: v.optional(v.id("categories")),
+    searchQuery: v.optional(v.string()),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number())
+  },
+  returns: v.object({
+    page: v.array(v.object({
+      _id: v.id("transactions"),
+      _creationTime: v.number(),
+      categoryId: v.id("categories"),
+      amount: v.number(),
+      description: v.string(),
+      date: v.number(),
+      type: v.union(v.literal("income"), v.literal("expense")),
+      receiptId: v.optional(v.id("_storage")),
+      receiptUrl: v.union(v.string(), v.null()),
+      category: v.object({
+        _id: v.id("categories"),
+        name: v.string(),
+        icon: v.optional(v.string()),
+        color: v.optional(v.string())
+      })
+    })),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    // Query only transactions that have receipts
+    let query = ctx.db
+      .query("transactions")
+      .filter((q) => q.neq(q.field("receiptId"), undefined));
+    
+    // Apply additional filters
+    if (args.categoryId) {
+      query = query.filter((q) => q.eq(q.field("categoryId"), args.categoryId));
+    }
+    
+    // Date range filter (only if both start and end dates are provided)
+    if (args.startDate !== undefined && args.endDate !== undefined) {
+      query = query.filter((q) => 
+        q.and(
+          q.gte(q.field("date"), args.startDate as number), 
+          q.lte(q.field("date"), args.endDate as number)
+        )
+      );
+    }
+    
+    // Apply ordering and paginate
+    const paginationResult = await query.order("desc").paginate(args.paginationOpts);
+    
+    // Get categories for all transactions
+    const transactionsWithCategory = await Promise.all(
+      paginationResult.page.map(async (transaction) => {
+        const category = await ctx.db.get(transaction.categoryId);
+        
+        // Get receipt URL if available
+        let receiptUrl = null;
+        if (transaction.receiptId) {
+          receiptUrl = await ctx.storage.getUrl(transaction.receiptId);
+        }
+        
+        return {
+          ...transaction,
+          receiptUrl,
+          category: category ? {
+            _id: category._id,
+            name: category.name,
+            icon: category.icon,
+            color: category.color
+          } : {
+            _id: transaction.categoryId,
+            name: "Unknown Category",
+            icon: undefined,
+            color: undefined
+          }
+        };
+      })
+    );
+    
+    // Search filtering (after fetching to search in normalized data)
+    let filteredTransactions = transactionsWithCategory;
+    if (args.searchQuery) {
+      const query = args.searchQuery.toLowerCase();
+      filteredTransactions = transactionsWithCategory.filter(t => 
+        t.description.toLowerCase().includes(query) || 
+        t.category.name.toLowerCase().includes(query)
+      );
+    }
+    
+    return {
+      page: filteredTransactions,
+      isDone: paginationResult.isDone,
+      continueCursor: paginationResult.continueCursor,
+    };
+  },
 }); 
