@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { api } from "@convex/_generated/api";
-import { useMutation } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { Id } from "@convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,8 @@ import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { Upload, X, Image, FileIcon, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Form schema for adding/editing a transaction
 const transactionFormSchema = z.object({
@@ -59,6 +61,7 @@ interface TransactionFormProps {
     type: "income" | "expense";
     categoryId: Id<"categories">;
     date: number;
+    receiptId?: Id<"_storage">;
   } | null;
   categories: Array<{
     _id: Id<"categories">;
@@ -82,11 +85,23 @@ export function TransactionForm({
   categories,
 }: TransactionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [receiptId, setReceiptId] = useState<Id<"_storage"> | undefined>(undefined);
+  
   const isEditing = !!editTransaction;
   
-  // Get mutations
+  // Get mutations and actions
   const createTransaction = useMutation(api.transactions.create);
   const updateTransaction = useMutation(api.transactions.update);
+  const generateUploadUrl = useAction(api.actions.uploadReceipt.generateUploadUrl);
+  
+  // Get receipt URL with useQuery
+  const storedReceiptUrl = useQuery(
+    api.transactions.getReceiptUrl, 
+    receiptId ? { receiptId } : "skip"
+  );
   
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
@@ -111,6 +126,14 @@ export function TransactionForm({
           categoryId: editTransaction.categoryId,
           date: new Date(editTransaction.date).toISOString().split('T')[0],
         });
+        
+        // If the transaction has a receipt, set the receipt ID
+        if (editTransaction.receiptId) {
+          setReceiptId(editTransaction.receiptId);
+        } else {
+          setReceiptUrl(null);
+          setReceiptId(undefined);
+        }
       } else {
         // Reset form for new transaction
         form.reset({
@@ -120,9 +143,78 @@ export function TransactionForm({
           categoryId: "",
           date: new Date().toISOString().split('T')[0],
         });
+        setReceiptFile(null);
+        setReceiptUrl(null);
+        setReceiptId(undefined);
       }
     }
   }, [open, form, editTransaction]);
+  
+  // Update receiptUrl when storedReceiptUrl changes
+  useEffect(() => {
+    if (storedReceiptUrl) {
+      setReceiptUrl(storedReceiptUrl);
+    }
+  }, [storedReceiptUrl]);
+  
+  // Handle file selection
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setReceiptFile(files[0]);
+      
+      // Clear any existing receipt ID since we're uploading a new file
+      if (receiptId) {
+        setReceiptId(undefined);
+      }
+    }
+  };
+  
+  // Handle file upload
+  const handleFileUpload = async () => {
+    if (!receiptFile) return undefined;
+    
+    try {
+      setIsUploading(true);
+      
+      // Get upload URL
+      const uploadUrl = await generateUploadUrl();
+      
+      // Upload file
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        body: receiptFile,
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to upload file");
+      }
+      
+      const { storageId } = await response.json();
+      setReceiptId(storageId);
+      
+      return storageId;
+    } catch (error) {
+      console.error("Error uploading receipt:", error);
+      toast.error("Receipt Upload Failed", { 
+        description: "Failed to upload receipt. Please try again."
+      });
+      return undefined;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
+  // Remove file
+  const removeFile = () => {
+    setReceiptFile(null);
+    
+    // If we're removing a file that hasn't been uploaded yet, clear the receipt ID
+    if (receiptFile && !receiptId) {
+      setReceiptId(undefined);
+      setReceiptUrl(null);
+    }
+  };
   
   // Filter categories based on selected type
   const type = form.watch("type");
@@ -131,20 +223,23 @@ export function TransactionForm({
   async function onSubmit(values: TransactionFormValues) {
     try {
       setIsSubmitting(true);
+      let finalReceiptId = receiptId;
       
-      const transactionData = {
-        description: values.description,
-        amount: values.amount,
-        type: values.type,
-        categoryId: values.categoryId as Id<"categories">,
-        date: new Date(values.date).getTime(),
-      };
+      // If there's a new file to upload, upload it
+      if (receiptFile && !receiptId) {
+        finalReceiptId = await handleFileUpload();
+      }
       
       if (isEditing && editTransaction) {
         // Update existing transaction
         await updateTransaction({
           id: editTransaction._id,
-          ...transactionData,
+          description: values.description,
+          amount: values.amount,
+          type: values.type,
+          categoryId: values.categoryId as Id<"categories">,
+          date: new Date(values.date).getTime(),
+          receiptId: finalReceiptId,
         });
         
         toast.success("Transaction Updated", {
@@ -156,8 +251,15 @@ export function TransactionForm({
           duration: 5000,
         });
       } else {
-        // Create new transaction
-        await createTransaction(transactionData);
+        // Create new transaction with receipt (if present)
+        await createTransaction({
+          description: values.description,
+          amount: values.amount,
+          type: values.type,
+          categoryId: values.categoryId as Id<"categories">,
+          date: new Date(values.date).getTime(),
+          receiptId: finalReceiptId,
+        });
         
         toast.success("Transaction Created", {
           description: `"${values.description}" was successfully created`,
@@ -185,6 +287,14 @@ export function TransactionForm({
       setIsSubmitting(false);
     }
   }
+  
+  // Determine if the receipt is an image
+  const isImageReceipt = receiptUrl && 
+    (receiptUrl.endsWith('.jpg') || 
+     receiptUrl.endsWith('.jpeg') || 
+     receiptUrl.endsWith('.png') || 
+     receiptUrl.endsWith('.gif') || 
+     receiptUrl.endsWith('.webp'));
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -337,11 +447,128 @@ export function TransactionForm({
               />
             </div>
             
+            {/* Receipt Upload */}
+            <div className="space-y-2">
+              <FormLabel>Receipt</FormLabel>
+              
+              {receiptUrl ? (
+                <div className="relative rounded-md border border-gray-200 p-4 flex flex-col items-center">
+                  {isImageReceipt ? (
+                    <div className="w-full max-h-48 flex justify-center overflow-hidden">
+                      <img 
+                        src={receiptUrl} 
+                        alt="Receipt" 
+                        className="object-contain max-h-48"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center p-4 w-full">
+                      <FileIcon className="h-10 w-10 text-gray-400" />
+                      <span className="ml-2 text-sm text-gray-500">Receipt document</span>
+                    </div>
+                  )}
+                  
+                  <div className="mt-2 flex items-center justify-center gap-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => window.open(receiptUrl, '_blank')}
+                    >
+                      View
+                    </Button>
+                    
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => {
+                        setReceiptUrl(null);
+                        setReceiptId(undefined);
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-1" /> Remove
+                    </Button>
+                  </div>
+                </div>
+              ) : receiptFile ? (
+                <div className="relative rounded-md border border-gray-200 p-4">
+                  <div className="flex items-center">
+                    <FileIcon className="h-10 w-10 text-gray-400" />
+                    <div className="ml-2 flex-1">
+                      <p className="text-sm font-medium">{receiptFile.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {(receiptFile.size / 1024).toFixed(2)} KB
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={removeFile}
+                      disabled={isUploading}
+                      className="h-8 w-8 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {isUploading && (
+                    <div className="mt-2 flex items-center justify-center">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <span className="text-xs">Uploading...</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center w-full">
+                  <label
+                    htmlFor="receipt-upload"
+                    className={cn(
+                      "flex flex-col items-center justify-center w-full h-32",
+                      "border-2 border-dashed rounded-lg cursor-pointer",
+                      "bg-gray-50 hover:bg-gray-100",
+                      "dark:hover:bg-gray-800 dark:bg-gray-700",
+                      "border-gray-300 dark:border-gray-600"
+                    )}
+                  >
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="h-6 w-6 text-gray-500 mb-2" />
+                      <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Images or PDFs (MAX. 10MB)
+                      </p>
+                    </div>
+                    <input
+                      id="receipt-upload"
+                      type="file"
+                      className="hidden"
+                      accept="image/*,.pdf"
+                      onChange={handleFileChange}
+                      disabled={isUploading}
+                    />
+                  </label>
+                </div>
+              )}
+              <FormDescription>
+                Upload a receipt image or PDF for this transaction (optional)
+              </FormDescription>
+            </div>
+            
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => onOpenChange(false)} 
+                disabled={isSubmitting || isUploading}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || isUploading}
+              >
                 {isSubmitting 
                   ? isEditing ? "Updating..." : "Creating..." 
                   : isEditing ? "Update Transaction" : "Create Transaction"

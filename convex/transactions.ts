@@ -20,7 +20,8 @@ export const create = mutation({
     amount: v.number(),
     description: v.string(),
     date: v.number(), // Timestamp
-    type: v.union(v.literal("income"), v.literal("expense"))
+    type: v.union(v.literal("income"), v.literal("expense")),
+    receiptId: v.optional(v.id("_storage"))
   },
   returns: v.id("transactions"),
   handler: async (ctx, args) => {
@@ -29,7 +30,8 @@ export const create = mutation({
       amount: args.amount,
       description: args.description,
       date: args.date,
-      type: args.type
+      type: args.type,
+      receiptId: args.receiptId
     });
   },
 }); 
@@ -39,6 +41,24 @@ export const getWithCategory = query({
   args: {
     limit: v.optional(v.number())
   },
+  returns: v.array(
+    v.object({
+      _id: v.id("transactions"),
+      _creationTime: v.number(),
+      categoryId: v.id("categories"),
+      amount: v.number(),
+      description: v.string(),
+      date: v.number(),
+      type: v.union(v.literal("income"), v.literal("expense")),
+      receiptId: v.optional(v.id("_storage")),
+      category: v.object({
+        _id: v.id("categories"),
+        name: v.string(),
+        icon: v.optional(v.string()),
+        color: v.optional(v.string())
+      })
+    })
+  ),
   handler: async (ctx, args) => {
     const limit = args.limit ?? 10;
     
@@ -212,6 +232,7 @@ export const getAllPaginated = query({
       description: v.string(),
       date: v.number(),
       type: v.union(v.literal("income"), v.literal("expense")),
+      receiptId: v.optional(v.id("_storage")),
       category: v.object({
         _id: v.id("categories"),
         name: v.string(),
@@ -438,6 +459,7 @@ export const getById = query({
       description: v.string(),
       date: v.number(),
       type: v.union(v.literal("income"), v.literal("expense")),
+      receiptId: v.optional(v.id("_storage")),
       category: v.object({
         _id: v.id("categories"),
         name: v.string(),
@@ -478,7 +500,8 @@ export const update = mutation({
     amount: v.optional(v.number()),
     description: v.optional(v.string()),
     date: v.optional(v.number()),
-    type: v.optional(v.union(v.literal("income"), v.literal("expense")))
+    type: v.optional(v.union(v.literal("income"), v.literal("expense"))),
+    receiptId: v.optional(v.id("_storage"))
   },
   returns: v.id("transactions"),
   handler: async (ctx, args) => {
@@ -495,5 +518,31 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id);
     return true;
+  },
+});
+
+// Add receipt to transaction
+export const addReceiptToTransaction = mutation({
+  args: {
+    transactionId: v.id("transactions"),
+    receiptId: v.id("_storage"),
+  },
+  returns: v.id("transactions"),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.transactionId, {
+      receiptId: args.receiptId,
+    });
+    return args.transactionId;
+  },
+});
+
+// Get receipt URL
+export const getReceiptUrl = query({
+  args: {
+    receiptId: v.id("_storage"),
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.storage.getUrl(args.receiptId);
   },
 }); 

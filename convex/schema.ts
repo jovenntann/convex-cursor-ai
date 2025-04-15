@@ -64,6 +64,7 @@ export default defineSchema({
     description: v.string(),
     date: v.number(), // Timestamp
     type: v.union(v.literal("income"), v.literal("expense")),
+    receiptId: v.optional(v.id("_storage")), // Add this to store file ID
     // Other fields would be here in the full implementation
   })
     .index("by_category", ["categoryId"])

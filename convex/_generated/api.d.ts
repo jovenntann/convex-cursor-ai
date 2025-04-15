@@ -13,6 +13,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as actions_uploadReceipt from "../actions/uploadReceipt.js";
 import type * as categories from "../categories.js";
 import type * as transactions from "../transactions.js";
 import type * as updateCategories from "../updateCategories.js";
@@ -27,6 +28,7 @@ import type * as users from "../users.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  "actions/uploadReceipt": typeof actions_uploadReceipt;
   categories: typeof categories;
   transactions: typeof transactions;
   updateCategories: typeof updateCategories;
