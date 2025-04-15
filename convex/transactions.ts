@@ -72,6 +72,123 @@ export const getWithCategory = query({
   },
 }); 
 
+// Calculate sum of income transactions
+export const sumIncome = query({
+  args: {
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    categoryId: v.optional(v.id("categories"))
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    let query = ctx.db
+      .query("transactions")
+      .withIndex("by_type", q => q.eq("type", "income"));
+    
+    // Apply date range filter if provided
+    if (args.startDate !== undefined && args.endDate !== undefined) {
+      query = query.filter(q => 
+        q.gte(q.field("date"), args.startDate as number) && 
+        q.lte(q.field("date"), args.endDate as number)
+      );
+    }
+    
+    // Apply category filter if provided
+    if (args.categoryId !== undefined) {
+      query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
+    }
+    
+    // Collect all matching transactions
+    const transactions = await query.collect();
+    
+    // Sum up the amounts
+    return transactions.reduce((total, transaction) => total + transaction.amount, 0);
+  }
+});
+
+// Calculate sum of expense transactions
+export const sumExpense = query({
+  args: {
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    categoryId: v.optional(v.id("categories"))
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    let query = ctx.db
+      .query("transactions")
+      .withIndex("by_type", q => q.eq("type", "expense"));
+    
+    // Apply date range filter if provided
+    if (args.startDate !== undefined && args.endDate !== undefined) {
+      query = query.filter(q => 
+        q.gte(q.field("date"), args.startDate as number) && 
+        q.lte(q.field("date"), args.endDate as number)
+      );
+    }
+    
+    // Apply category filter if provided
+    if (args.categoryId !== undefined) {
+      query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
+    }
+    
+    // Collect all matching transactions
+    const transactions = await query.collect();
+    
+    // Sum up the amounts (get absolute values for expenses)
+    return transactions.reduce((total, transaction) => total + Math.abs(transaction.amount), 0);
+  }
+});
+
+// Get transaction sums (income, expense, and net) in a single query
+export const getSummary = query({
+  args: {
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number())
+  },
+  returns: v.object({
+    totalIncome: v.number(),
+    totalExpense: v.number(),
+    netAmount: v.number()
+  }),
+  handler: async (ctx, args) => {
+    let incomeQuery = ctx.db
+      .query("transactions")
+      .withIndex("by_type", q => q.eq("type", "income"));
+    
+    let expenseQuery = ctx.db
+      .query("transactions")
+      .withIndex("by_type", q => q.eq("type", "expense"));
+    
+    // Apply date range filter if provided
+    if (args.startDate !== undefined && args.endDate !== undefined) {
+      incomeQuery = incomeQuery.filter(q => 
+        q.gte(q.field("date"), args.startDate as number) && 
+        q.lte(q.field("date"), args.endDate as number)
+      );
+      
+      expenseQuery = expenseQuery.filter(q => 
+        q.gte(q.field("date"), args.startDate as number) && 
+        q.lte(q.field("date"), args.endDate as number)
+      );
+    }
+    
+    // Collect transactions by type
+    const incomeTransactions = await incomeQuery.collect();
+    const expenseTransactions = await expenseQuery.collect();
+    
+    // Calculate sums
+    const totalIncome = incomeTransactions.reduce((total, transaction) => total + transaction.amount, 0);
+    const totalExpense = expenseTransactions.reduce((total, transaction) => total + Math.abs(transaction.amount), 0);
+    
+    return {
+      totalIncome,
+      totalExpense,
+      netAmount: totalIncome - totalExpense
+    };
+  }
+});
+
 // Get all transactions with pagination, sorting, filtering, and search
 export const getAllPaginated = query({
   args: { 

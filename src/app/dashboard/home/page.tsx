@@ -17,6 +17,9 @@ export default function HomePage() {
   const incomeCount = useQuery(api.transactions.count, { type: "income" });
   const expenseCount = useQuery(api.transactions.count, { type: "expense" });
   
+  // Get financial summary data
+  const summary = useQuery(api.transactions.getSummary, {});
+  
   // Get all categories
   const categories = useQuery(api.categories.getAll);
   
@@ -31,6 +34,13 @@ export default function HomePage() {
     reviewer: new Date(transaction.date).toLocaleDateString()
   })) : [];
 
+  // Set defaults for financial summary data
+  const financialSummary = summary || {
+    totalIncome: 0,
+    totalExpense: 0,
+    netAmount: 0
+  };
+
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -39,6 +49,9 @@ export default function HomePage() {
           incomeCount={incomeCount || 0}
           expenseCount={expenseCount || 0}
           categoryCount={categories?.length || 0}
+          totalIncome={financialSummary.totalIncome}
+          totalExpense={financialSummary.totalExpense}
+          netAmount={financialSummary.netAmount}
         />
         <div className="px-4 lg:px-6">
           <ChartAreaInteractive transactions={transactions || []} />
