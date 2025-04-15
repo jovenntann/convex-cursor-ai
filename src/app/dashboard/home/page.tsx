@@ -6,7 +6,7 @@ import { useQuery } from "convex/react";
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { DataTable } from "@/components/data-table"
 import { SectionCards } from "@/components/section-cards"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function HomePage() {
   // Get recent transactions with their categories
@@ -35,15 +35,30 @@ export default function HomePage() {
   // Get sum of all expense categories (fixed + dynamic)
   const totalExpensesCategories = useQuery(api.categories.sumTotalExpenseCategories);
   
+  // Check loading state
+  const isLoading = 
+    transactions === undefined || 
+    totalTransactions === undefined || 
+    incomeCount === undefined || 
+    expenseCount === undefined || 
+    summary === undefined || 
+    categories === undefined || 
+    fixedExpensesTotal === undefined || 
+    incomeCategoriesTotal === undefined || 
+    dynamicExpensesTotal === undefined || 
+    totalExpensesCategories === undefined;
+  
   // Format transactions for data table
   const tableData = transactions ? transactions.map((transaction, index) => ({
     id: index + 1,
-    header: transaction.description,
-    type: transaction.type,
-    status: transaction.amount > 0 ? "Done" : "In Process",
-    target: transaction.category.name,
-    limit: `$${Math.abs(transaction.amount).toFixed(2)}`,
-    reviewer: new Date(transaction.date).toLocaleDateString()
+    category: {
+      icon: transaction.category.icon || "📁",
+      name: transaction.category.name
+    },
+    date: new Date(transaction.date).toLocaleDateString(),
+    description: transaction.description,
+    amount: `${transaction.type === "income" ? "+" : "-"}$${Math.abs(transaction.amount).toFixed(2)}`,
+    type: transaction.type
   })) : [];
 
   // Set defaults for financial summary data
@@ -52,6 +67,47 @@ export default function HomePage() {
     totalExpense: 0,
     netAmount: 0
   };
+
+  // Prepare column headers based on transaction data
+  const [tableHeaders, setTableHeaders] = useState({
+    category: "Category",
+    description: "Description",
+    date: "Date",
+    type: "Type",
+    amount: "Amount"
+  });
+
+  // Update headers if transactions data is available
+  useEffect(() => {
+    if (transactions && transactions.length > 0) {
+      setTableHeaders({
+        category: "Category",
+        description: "Description",
+        date: "Date",
+        type: "Type",
+        amount: "Amount"
+      });
+    }
+  }, [transactions]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="@container/main flex flex-1 flex-col items-center justify-center gap-2">
+        <div className="animate-pulse text-lg">Loading financial data...</div>
+      </div>
+    );
+  }
+
+  // Show empty state if no transactions
+  if (transactions && transactions.length === 0) {
+    return (
+      <div className="@container/main flex flex-1 flex-col items-center justify-center gap-4">
+        <h2 className="text-xl font-semibold">No transactions found</h2>
+        <p>Add your first transaction to start tracking your finances</p>
+      </div>
+    );
+  }
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
@@ -72,7 +128,7 @@ export default function HomePage() {
         <div className="px-4 lg:px-6">
           <ChartAreaInteractive transactions={transactions || []} />
         </div>
-        <DataTable data={tableData} />
+        <DataTable data={tableData} columnHeaders={tableHeaders} />
       </div>
     </div>
   )
