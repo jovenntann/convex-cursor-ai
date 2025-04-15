@@ -1,7 +1,7 @@
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { IconDownload, IconReceipt } from "@tabler/icons-react";
 import { formatDate, formatCurrency } from "@/lib/utils";
@@ -30,14 +30,14 @@ export function ReceiptDetails({ receiptId, isOpen, onClose }: ReceiptDetailsPro
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>Receipt Details</SheetTitle>
-          <SheetDescription>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Receipt Details</DialogTitle>
+          <DialogDescription>
             Transaction from {formatDate(transaction.date)}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
         
         <div className="mt-6 flex flex-col gap-6">
           <div className="flex-1 overflow-hidden rounded-lg bg-muted">
@@ -95,7 +95,7 @@ export function ReceiptDetails({ receiptId, isOpen, onClose }: ReceiptDetailsPro
             </div>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 } 
