@@ -9,11 +9,15 @@ import {
   IconDownload,
   IconChevronLeft,
   IconChevronRight,
-  IconEye
+  IconEye,
+  IconPhoto,
+  IconPhotoOff,
+  IconReceipt,
+  IconFileInvoice
 } from "@tabler/icons-react";
 import { Id } from "@convex/_generated/dataModel";
 import { format } from "date-fns";
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction, useState, useMemo, useCallback } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import {
@@ -40,6 +44,158 @@ interface TransactionTileViewProps {
   isFirstPage: boolean;
 }
 
+// Custom hook to get receipt URL
+function useReceiptUrl(receiptId: Id<"_storage"> | undefined) {
+  return useQuery(
+    api.transactions.getReceiptUrl, 
+    receiptId ? { receiptId } : "skip"
+  );
+}
+
+// Transaction card component (separated to handle its own hooks)
+interface TransactionCardProps {
+  transaction: {
+    _id: Id<"transactions">;
+    amount: number;
+    description: string;
+    date: number;
+    type: "income" | "expense";
+    receiptId?: Id<"_storage">;
+    category: {
+      _id: Id<"categories">;
+      name: string;
+      icon?: string;
+      color?: string;
+    };
+  };
+  handleEdit: (transaction: any) => void;
+  handleDelete: (id: Id<"transactions">, description: string) => void;
+  onViewReceipt: (receiptId: Id<"_storage"> | undefined) => void;
+}
+
+const TransactionCard = ({ 
+  transaction, 
+  handleEdit, 
+  handleDelete,
+  onViewReceipt
+}: TransactionCardProps) => {
+  // Get receipt URL for this transaction
+  const receiptUrl = useReceiptUrl(transaction.receiptId);
+  
+  function generateRefNumber(id: string) {
+    return id.slice(-12).toUpperCase();
+  }
+  
+  return (
+    <Card 
+      className={`overflow-hidden border shadow-md hover:shadow-lg transition-shadow ${transaction.type === "income" ? "bg-white border-gray-200" : "bg-white border-gray-200"}`}
+    >
+      <CardHeader className="py-4 px-4 bg-gray-50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${transaction.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+              <span className="text-xl">
+                {transaction.category.icon || (transaction.type === "income" ? "💰" : "💸")}
+              </span>
+            </div>
+            <div>
+              <div className="font-medium">{transaction.category.name}</div>
+              <div className="text-sm text-muted-foreground">{format(new Date(transaction.date), "dd MMM yyyy")}</div>
+            </div>
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <IconDotsVertical className="h-4 w-4" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleEdit(transaction)}>
+                <IconPencil className="h-4 w-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="text-destructive" 
+                onClick={() => handleDelete(transaction._id, transaction.description)}
+              >
+                <IconTrash className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="p-0">
+        <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between">
+          <div>
+            <div className={`text-xl font-bold ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}>
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(transaction.amount)}
+            </div>
+            <div className="text-sm text-muted-foreground truncate max-w-[180px]">
+              {transaction.description}
+            </div>
+          </div>
+          
+          {receiptUrl ? (
+            <div 
+              className="w-14 h-14 rounded-md bg-gray-100 flex items-center justify-center overflow-hidden cursor-pointer border border-gray-200 hover:border-gray-300 transition-colors"
+              onClick={() => onViewReceipt(transaction.receiptId)}
+            >
+              <img 
+                src={receiptUrl} 
+                alt="Receipt" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="w-14 h-14 rounded-md bg-gray-100 flex items-center justify-center text-muted-foreground border border-gray-200">
+              <IconPhotoOff className="h-6 w-6" />
+            </div>
+          )}
+        </div>
+        
+        <div className="bg-gray-50 px-4 py-3 border-t border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="text-xs text-muted-foreground">Ref:</div>
+              <div className="text-xs font-medium">{generateRefNumber(transaction._id)}</div>
+            </div>
+            
+            <Badge variant="outline" className={`text-xs ${transaction.type === "income" ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+              {transaction.type}
+            </Badge>
+          </div>
+        </div>
+      </CardContent>
+      
+      <CardFooter className="p-0 border-t border-gray-100">
+        {transaction.receiptId ? (
+          <Button 
+            variant="ghost"
+            className="w-full rounded-none h-10 text-sm hover:bg-gray-50"
+            onClick={() => onViewReceipt(transaction.receiptId)}
+          >
+            <IconReceipt className="h-3.5 w-3.5 mr-2" />
+            View Receipt
+          </Button>
+        ) : (
+          <Button 
+            variant="ghost"
+            className="w-full rounded-none h-10 text-sm opacity-50 cursor-not-allowed"
+            disabled
+          >
+            <IconFileInvoice className="h-3.5 w-3.5 mr-2" />
+            No Receipt
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  );
+};
+
 export function TransactionTileView({
   page,
   isDone,
@@ -57,38 +213,16 @@ export function TransactionTileView({
   const [selectedReceiptId, setSelectedReceiptId] = useState<Id<"_storage"> | null>(null);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   
-  // Get receipt URL with useQuery
-  const receiptUrl = useQuery(
-    api.transactions.getReceiptUrl, 
-    selectedReceiptId ? { receiptId: selectedReceiptId } : "skip"
-  );
-
-  // Format date for display
-  function formatDate(timestamp: number) {
-    return format(new Date(timestamp), "dd MMM yyyy, HH:mm");
-  }
-
-  // Format amount with currency symbol
-  function formatAmount(amount: number) {
-    return new Intl.NumberFormat('en-US', { 
-      style: 'currency', 
-      currency: 'USD' 
-    }).format(amount);
-  }
-
-  // Generate a reference number (simplified for demo)
-  function generateRefNumber(id: string) {
-    // Take the last 12 characters of the ID to create a reference number
-    return id.slice(-12).toUpperCase();
-  }
-
+  // Get selected receipt URL for dialog
+  const selectedReceiptUrl = useReceiptUrl(selectedReceiptId || undefined);
+  
   // Show receipt in dialog
-  function showReceipt(receiptId: Id<"_storage"> | undefined) {
+  const showReceipt = useCallback((receiptId: Id<"_storage"> | undefined) => {
     if (receiptId) {
       setSelectedReceiptId(receiptId);
       setReceiptDialogOpen(true);
     }
-  }
+  }, []);
 
   if (!page || page.length === 0) {
     return (
@@ -102,101 +236,13 @@ export function TransactionTileView({
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
         {page.map((transaction) => (
-          <Card 
+          <TransactionCard 
             key={transaction._id}
-            className={`overflow-hidden border ${transaction.type === "income" ? "bg-white border-gray-100" : "bg-white border-gray-100"}`}
-          >
-            <CardHeader className={`py-6 px-4 gap-2 flex flex-col items-center justify-center relative`}>
-              <div className="mb-2">
-                <span className="text-4xl">
-                  {transaction.category.icon || (transaction.type === "income" ? "💰" : "💸")}
-                </span>
-              </div>
-              <CardTitle className="text-center text-xl">
-                {transaction.type === "income" ? "Income" : "Expense"}
-              </CardTitle>
-              
-              <div className="absolute right-3 top-3">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <IconDotsVertical className="h-4 w-4" />
-                      <span className="sr-only">Open menu</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleEdit(transaction)}>
-                      <IconPencil className="h-4 w-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="text-destructive" 
-                      onClick={() => handleDelete(transaction._id, transaction.description)}
-                    >
-                      <IconTrash className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardHeader>
-            
-            <div className="w-full border-t border-gray-100"></div>
-            
-            <CardContent className="p-0">
-              <div className="pt-4 text-center">
-                <div className="text-sm text-muted-foreground">
-                  Total Amount
-                </div>
-                <div className={`text-2xl font-bold mt-1 ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}>
-                  {formatAmount(transaction.amount)}
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3 mt-4 px-3">
-                <div className="rounded-lg border border-gray-100 p-3">
-                  <div className="text-xs text-muted-foreground">Ref Number</div>
-                  <div className="text-sm font-medium">{generateRefNumber(transaction._id)}</div>
-                </div>
-                <div className="rounded-lg border border-gray-100 p-3">
-                  <div className="text-xs text-muted-foreground">Transaction Date</div>
-                  <div className="text-sm font-medium">{format(new Date(transaction.date), "dd MMM yyyy")}</div>
-                </div>
-                <div className="rounded-lg border border-gray-100 p-3">
-                  <div className="text-xs text-muted-foreground">Category</div>
-                  <div className="text-sm font-medium">{transaction.category.name}</div>
-                </div>
-                <div className="rounded-lg border border-gray-100 p-3">
-                  <div className="text-xs text-muted-foreground">Description</div>
-                  <div className="text-sm font-medium truncate">
-                    {transaction.description}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            
-            <CardFooter className="p-4 mt-3 flex justify-center">
-              {transaction.receiptId ? (
-                <Button 
-                  variant="outline"
-                  className={`w-full flex items-center justify-center gap-2 ${transaction.type === "income" ? "border-green-200 hover:bg-green-50" : "border-red-200 hover:bg-red-50"}`}
-                  onClick={() => showReceipt(transaction.receiptId)}
-                >
-                  <IconEye className="h-4 w-4" />
-                  Show Receipt
-                </Button>
-              ) : (
-                <Button 
-                  variant="outline"
-                  className={`w-full flex items-center justify-center gap-2 opacity-50 cursor-not-allowed ${transaction.type === "income" ? "border-green-200" : "border-red-200"}`}
-                  disabled
-                >
-                  <IconEye className="h-4 w-4" />
-                  No Receipt Available
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
+            transaction={transaction}
+            handleEdit={handleEdit}
+            handleDelete={handleDelete}
+            onViewReceipt={showReceipt}
+          />
         ))}
       </div>
       
@@ -210,9 +256,9 @@ export function TransactionTileView({
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-4">
-            {receiptUrl ? (
+            {selectedReceiptUrl ? (
               <img
-                src={receiptUrl}
+                src={selectedReceiptUrl}
                 alt="Transaction Receipt"
                 className="max-w-full max-h-[500px] object-contain rounded-md border"
               />
