@@ -523,4 +523,118 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
     return true;
   },
-}); 
+});
+
+// Sum all fixed expense categories budgets for the authenticated user
+export const sumFixedExpenses = query({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    // Get all fixed expense categories for the user
+    const fixedExpenses = await ctx.db
+      .query("categories")
+      .withIndex("by_userId_type_and_nature", q => 
+        q.eq("userId", userId)
+         .eq("type", "expense")
+         .eq("nature", "fixed")
+      )
+      .collect();
+    
+    // Sum up all the budgets
+    return fixedExpenses.reduce((sum, category) => {
+      // Add the budget to the sum if it exists, otherwise add 0
+      return sum + (category.budget ?? 0);
+    }, 0);
+  },
+});
+
+// Sum all income categories budgets for the authenticated user
+export const sumIncomeCategories = query({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    // Get all income categories for the user
+    const incomeCategories = await ctx.db
+      .query("categories")
+      .withIndex("by_userId_and_type", q => 
+        q.eq("userId", userId)
+         .eq("type", "income")
+      )
+      .collect();
+    
+    // Sum up all the budgets
+    return incomeCategories.reduce((sum, category) => {
+      // Add the budget to the sum if it exists, otherwise add 0
+      return sum + (category.budget ?? 0);
+    }, 0);
+  },
+});
+
+// Sum all dynamic expense categories budgets for the authenticated user
+export const sumDynamicExpenses = query({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    // Get all dynamic expense categories for the user
+    const dynamicExpenses = await ctx.db
+      .query("categories")
+      .withIndex("by_userId_type_and_nature", q => 
+        q.eq("userId", userId)
+         .eq("type", "expense")
+         .eq("nature", "dynamic")
+      )
+      .collect();
+    
+    // Sum up all the budgets
+    return dynamicExpenses.reduce((sum, category) => {
+      // Add the budget to the sum if it exists, otherwise add 0
+      return sum + (category.budget ?? 0);
+    }, 0);
+  },
+});
+
+// Sum all expense categories budgets (both fixed and dynamic) for the authenticated user
+export const sumTotalExpenseCategories = query({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    // Get all expense categories for the user regardless of nature (fixed or dynamic)
+    const allExpenses = await ctx.db
+      .query("categories")
+      .withIndex("by_userId_and_type", q => 
+        q.eq("userId", userId)
+         .eq("type", "expense")
+      )
+      .collect();
+    
+    // Sum up all the budgets
+    return allExpenses.reduce((sum, category) => {
+      // Add the budget to the sum if it exists, otherwise add 0
+      return sum + (category.budget ?? 0);
+    }, 0);
+  },
+});

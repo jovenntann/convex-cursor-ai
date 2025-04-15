@@ -23,6 +23,18 @@ export default function HomePage() {
   // Get all categories
   const categories = useQuery(api.categories.getAll);
   
+  // Get sum of fixed expenses
+  const fixedExpensesTotal = useQuery(api.categories.sumFixedExpenses);
+  
+  // Get sum of income categories
+  const incomeCategoriesTotal = useQuery(api.categories.sumIncomeCategories);
+  
+  // Get sum of dynamic expenses
+  const dynamicExpensesTotal = useQuery(api.categories.sumDynamicExpenses);
+  
+  // Get sum of all expense categories (fixed + dynamic)
+  const totalExpensesCategories = useQuery(api.categories.sumTotalExpenseCategories);
+  
   // Format transactions for data table
   const tableData = transactions ? transactions.map((transaction, index) => ({
     id: index + 1,
@@ -52,6 +64,10 @@ export default function HomePage() {
           totalIncome={financialSummary.totalIncome}
           totalExpense={financialSummary.totalExpense}
           netAmount={financialSummary.netAmount}
+          fixedExpensesTotal={fixedExpensesTotal || 0}
+          incomeCategoriesTotal={incomeCategoriesTotal || 0}
+          dynamicExpensesTotal={dynamicExpensesTotal || 0}
+          totalExpensesCategories={totalExpensesCategories || 0}
         />
         <div className="px-4 lg:px-6">
           <ChartAreaInteractive transactions={transactions || []} />

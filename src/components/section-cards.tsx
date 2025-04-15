@@ -18,6 +18,10 @@ export interface SectionCardsProps {
   totalIncome: number;
   totalExpense: number;
   netAmount: number;
+  fixedExpensesTotal?: number;
+  incomeCategoriesTotal?: number;
+  dynamicExpensesTotal?: number;
+  totalExpensesCategories?: number;
 }
 
 export function SectionCards({ 
@@ -27,7 +31,11 @@ export function SectionCards({
   categoryCount,
   totalIncome,
   totalExpense,
-  netAmount
+  netAmount,
+  fixedExpensesTotal = 0,
+  incomeCategoriesTotal = 0,
+  dynamicExpensesTotal = 0,
+  totalExpensesCategories = 0
 }: SectionCardsProps) {
   // Format currency values
   const formatCurrency = (amount: number) => {
@@ -122,6 +130,86 @@ export function SectionCards({
             Spending categories <IconTrendingUp className="size-4" />
           </div>
           <div className="text-muted-foreground">Active spending categories</div>
+        </CardFooter>
+      </Card>
+      <Card className="@container/card">
+        <CardHeader>
+          <CardDescription>Income Categories</CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {formatCurrency(incomeCategoriesTotal)}
+          </CardTitle>
+          <CardAction>
+            <Badge variant="outline">
+              <IconTrendingUp />
+              Expected
+            </Badge>
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <div className="line-clamp-1 flex gap-2 font-medium">
+            Income sources <IconTrendingUp className="size-4" />
+          </div>
+          <div className="text-muted-foreground">Total expected monthly income</div>
+        </CardFooter>
+      </Card>
+      <Card className="@container/card">
+        <CardHeader>
+          <CardDescription>Fixed Expenses</CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {formatCurrency(fixedExpensesTotal)}
+          </CardTitle>
+          <CardAction>
+            <Badge variant="outline">
+              <IconTrendingDown />
+              Monthly
+            </Badge>
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <div className="line-clamp-1 flex gap-2 font-medium">
+            Fixed expenses <IconTrendingDown className="size-4" />
+          </div>
+          <div className="text-muted-foreground">Total monthly fixed expenses</div>
+        </CardFooter>
+      </Card>
+      <Card className="@container/card">
+        <CardHeader>
+          <CardDescription>Dynamic Expenses</CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {formatCurrency(dynamicExpensesTotal)}
+          </CardTitle>
+          <CardAction>
+            <Badge variant="outline">
+              <IconTrendingDown />
+              Variable
+            </Badge>
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <div className="line-clamp-1 flex gap-2 font-medium">
+            Variable expenses <IconTrendingDown className="size-4" />
+          </div>
+          <div className="text-muted-foreground">Total variable expense budgets</div>
+        </CardFooter>
+      </Card>
+      <Card className="@container/card">
+        <CardHeader>
+          <CardDescription>Total Budgeted Expenses</CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {formatCurrency(totalExpensesCategories)}
+          </CardTitle>
+          <CardAction>
+            <Badge variant="outline">
+              <IconTrendingDown />
+              Combined
+            </Badge>
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <div className="line-clamp-1 flex gap-2 font-medium">
+            All expenses <IconTrendingDown className="size-4" />
+          </div>
+          <div className="text-muted-foreground">Fixed + dynamic expense budgets</div>
         </CardFooter>
       </Card>
     </div>
