@@ -5,11 +5,11 @@ import { api } from "@convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { Id } from "@convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconTable, IconLayoutGrid } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 // Import components
-import { TransactionTable, DeleteConfirmDialog, FilterBar, TransactionForm } from "./components";
+import { TransactionTable, DeleteConfirmDialog, FilterBar, TransactionForm, TransactionTileView } from "./components";
 
 export default function TransactionsPage() {
   const [cursor, setCursor] = useState<string | null>(null);
@@ -29,6 +29,7 @@ export default function TransactionsPage() {
   const [bulkDelete, setBulkDelete] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<"table" | "tile">("table");
   
   // Get mutations
   const deleteTransaction = useMutation(api.transactions.remove);
@@ -215,15 +216,35 @@ export default function TransactionsPage() {
     setTransactionToEdit(null);
   }
   
+  // Function to toggle view mode
+  function toggleViewMode() {
+    setViewMode(viewMode === "table" ? "tile" : "table");
+  }
+  
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
         <div className="flex items-center justify-between px-4 lg:px-6">
           <h1 className="text-2xl font-bold">Transactions</h1>
-          <Button className="flex items-center gap-1" onClick={() => setShowTransactionForm(true)}>
-            <IconPlus className="h-4 w-4" />
-            New Transaction
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={toggleViewMode}
+              className="h-9 w-9"
+              title={viewMode === "table" ? "Switch to Tile View" : "Switch to Table View"}
+            >
+              {viewMode === "table" ? (
+                <IconLayoutGrid className="h-4 w-4" />
+              ) : (
+                <IconTable className="h-4 w-4" />
+              )}
+            </Button>
+            <Button className="flex items-center gap-1" onClick={() => setShowTransactionForm(true)}>
+              <IconPlus className="h-4 w-4" />
+              New Transaction
+            </Button>
+          </div>
         </div>
         
         <div className="px-4 lg:px-6">
@@ -244,49 +265,72 @@ export default function TransactionsPage() {
             categories={categories}
           />
           
-          <TransactionTable 
-            page={page}
-            isDone={isDone}
-            continueCursor={continueCursor}
-            selectedRows={selectedRows}
-            setSelectedRows={setSelectedRows}
-            handleDelete={handleDelete}
-            handleEdit={handleEdit}
-            sortByDate={sortByDate}
-            sortByAmount={sortByAmount}
-            sortByDescription={sortByDescription}
-            sortDirection={sortDirection}
-            toggleSortByDate={toggleSortByDate}
-            toggleSortByAmount={toggleSortByAmount}
-            toggleSortByDescription={toggleSortByDescription}
-            pageSize={pageSize}
-            onPageSizeChange={handlePageSizeChange}
-            onNextPage={handleNextPage}
-            onPreviousPage={handlePreviousPage}
-            handleBulkDelete={handleBulkDelete}
-          />
+          {viewMode === "table" ? (
+            <TransactionTable 
+              page={page}
+              isDone={isDone}
+              continueCursor={continueCursor}
+              selectedRows={selectedRows}
+              setSelectedRows={setSelectedRows}
+              handleDelete={handleDelete}
+              handleEdit={handleEdit}
+              sortByDate={sortByDate}
+              sortByAmount={sortByAmount}
+              sortByDescription={sortByDescription}
+              sortDirection={sortDirection}
+              toggleSortByDate={toggleSortByDate}
+              toggleSortByAmount={toggleSortByAmount}
+              toggleSortByDescription={toggleSortByDescription}
+              pageSize={pageSize}
+              onPageSizeChange={handlePageSizeChange}
+              onNextPage={handleNextPage}
+              onPreviousPage={handlePreviousPage}
+              handleBulkDelete={handleBulkDelete}
+            />
+          ) : (
+            <div className="py-3">
+              <TransactionTileView
+                page={page}
+                isDone={isDone}
+                continueCursor={continueCursor}
+                selectedRows={selectedRows}
+                setSelectedRows={setSelectedRows}
+                handleDelete={handleDelete}
+                handleEdit={handleEdit}
+                pageSize={pageSize}
+                onPageSizeChange={handlePageSizeChange}
+                onNextPage={handleNextPage}
+                onPreviousPage={handlePreviousPage}
+                isFirstPage={cursor === null}
+              />
+            </div>
+          )}
         </div>
       </div>
       
-      {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
-        open={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-        transactionToDelete={transactionToDelete}
-        bulkDelete={bulkDelete}
-        selectedRowsCount={selectedRows.length}
-      />
+      {/* Transaction Form Dialog */}
+      {showTransactionForm && (
+        <TransactionForm
+          open={showTransactionForm}
+          onOpenChange={handleCloseForm}
+          onSuccess={refreshData}
+          editTransaction={transactionToEdit}
+          categories={categories}
+        />
+      )}
       
-      {/* Transaction Form Modal (for both Add and Edit) */}
-      <TransactionForm 
-        open={showTransactionForm}
-        onOpenChange={handleCloseForm}
-        onSuccess={refreshData}
-        editTransaction={transactionToEdit}
-        categories={categories}
-      />
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <DeleteConfirmDialog
+          open={showDeleteConfirm}
+          onOpenChange={setShowDeleteConfirm}
+          onConfirm={confirmDelete}
+          onCancel={cancelDelete}
+          transactionToDelete={transactionToDelete}
+          bulkDelete={bulkDelete}
+          selectedRowsCount={selectedRows.length}
+        />
+      )}
     </div>
   );
 } 
