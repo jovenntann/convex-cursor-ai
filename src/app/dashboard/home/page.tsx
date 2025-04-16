@@ -14,6 +14,8 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
+import { BudgetProgress } from "@/components/budget-progress";
+import { useConvexAuth } from "convex/react";
 
 export default function HomePage() {
   // Date range state
@@ -123,6 +125,21 @@ export default function HomePage() {
   
   // Get sum of all expense categories (fixed + dynamic)
   const totalExpensesCategories = useQuery(api.categories.sumTotalExpenseCategories);
+
+  // Get budget usage data for categories
+  const { isAuthenticated } = useConvexAuth();
+  const identity = useQuery(api.users.getUser);
+  console.log("Auth status:", isAuthenticated, "Identity:", identity);
+  
+  const budgetUsageData = useQuery(
+    api.categories.getCategoriesWithBudgetUsage, 
+    {
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate
+    }
+  );
+  
+  console.log("Budget usage data:", budgetUsageData);
   
   // Track active tab
   const [activeTab, setActiveTab] = useState("outline");
@@ -151,7 +168,8 @@ export default function HomePage() {
     totalExpensesCategories === undefined ||
     fixedCategoryExpenses === undefined ||
     dynamicCategoryExpenses === undefined ||
-    totalTransactionExpenses === undefined;
+    totalTransactionExpenses === undefined ||
+    budgetUsageData === undefined;
   
   // Format recent transactions for data table
   const recentTransactionsData = transactions ? transactions.map((transaction, index) => ({
@@ -283,9 +301,87 @@ export default function HomePage() {
           dynamicExpensesTotal={dynamicExpensesTotal || 0}
           totalExpensesCategories={totalTransactionExpenses || 0}
         />
-        <div className="px-4 lg:px-6">
-          <ChartAreaInteractive transactions={transactions || []} />
+        
+        {/* Transactions chart */}
+        <div className="px-4 lg:px-6 mb-6">
+          <div className="col-span-1 rounded-lg overflow-hidden">
+            <ChartAreaInteractive transactions={transactions || []} />
+          </div>
         </div>
+        
+        {/* Budget usage sections */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-4 lg:px-6 mb-6">
+          {/* Fixed Expenses Budget */}
+          <div className="col-span-1 border rounded-lg p-6 bg-white/80 shadow-sm">
+            <h3 className="text-xl font-medium text-gray-800 mb-4 border-b pb-2">Fixed Expenses Budget</h3>
+            {budgetUsageData ? (
+              budgetUsageData.categories && budgetUsageData.categories.filter(c => c.nature === "fixed" && c.type === "expense").length > 0 ? (
+                <BudgetProgress 
+                  categories={budgetUsageData.categories.filter(c => c.nature === "fixed" && c.type === "expense")} 
+                  hideTitle={true}
+                  singleType="fixed"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-48">
+                  <p className="text-gray-500">No fixed expense data available for this period.</p>
+                  <p className="text-sm text-gray-400 mt-2">Try changing your date range or adding transactions.</p>
+                </div>
+              )
+            ) : (
+              <div className="flex items-center justify-center h-48">
+                <p className="text-gray-500">Loading budget data...</p>
+              </div>
+            )}
+          </div>
+          
+          {/* Dynamic Expenses Budget */}
+          <div className="col-span-1 border rounded-lg p-6 bg-white/80 shadow-sm">
+            <h3 className="text-xl font-medium text-gray-800 mb-4 border-b pb-2">Dynamic Expenses Budget</h3>
+            {budgetUsageData ? (
+              budgetUsageData.categories && budgetUsageData.categories.filter(c => c.nature === "dynamic" && c.type === "expense").length > 0 ? (
+                <BudgetProgress 
+                  categories={budgetUsageData.categories.filter(c => c.nature === "dynamic" && c.type === "expense")} 
+                  hideTitle={true}
+                  singleType="dynamic"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-48">
+                  <p className="text-gray-500">No dynamic expense data available for this period.</p>
+                  <p className="text-sm text-gray-400 mt-2">Try changing your date range or adding transactions.</p>
+                </div>
+              )
+            ) : (
+              <div className="flex items-center justify-center h-48">
+                <p className="text-gray-500">Loading budget data...</p>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Income data */}
+        <div className="px-4 lg:px-6 mb-6">
+          <div className="border rounded-lg p-6 bg-white/80 shadow-sm">
+            <h3 className="text-xl font-medium text-gray-800 mb-4 border-b pb-2">Income Budget</h3>
+            {budgetUsageData ? (
+              budgetUsageData.categories && budgetUsageData.categories.filter(c => c.type === "income").length > 0 ? (
+                <BudgetProgress 
+                  categories={budgetUsageData.categories.filter(c => c.type === "income")} 
+                  hideTitle={true}
+                  singleType="income"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-20">
+                  <p className="text-gray-500">No income data available for this period.</p>
+                </div>
+              )
+            ) : (
+              <div className="flex items-center justify-center h-20">
+                <p className="text-gray-500">Loading income data...</p>
+              </div>
+            )}
+          </div>
+        </div>
+        
         <DataTable 
           data={activeTab === "past-performance" ? incomeTransactionsData : recentTransactionsData} 
           columnHeaders={tableHeaders}

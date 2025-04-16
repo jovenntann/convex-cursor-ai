@@ -638,3 +638,115 @@ export const sumTotalExpenseCategories = query({
     }, 0);
   },
 });
+
+/**
+ * Get categories with budget usage for a specific date range
+ */
+export const getCategoriesWithBudgetUsage = query({
+  args: {
+    startDate: v.number(), // timestamp
+    endDate: v.number(),   // timestamp
+  },
+  returns: v.object({
+    categories: v.array(
+      v.object({
+        _id: v.id("categories"),
+        name: v.string(),
+        type: v.union(v.literal("income"), v.literal("expense")),
+        nature: v.union(v.literal("fixed"), v.literal("dynamic")),
+        budget: v.optional(v.number()),
+        amountSpent: v.number(),
+        percentageUsed: v.number(),
+        color: v.optional(v.string()),
+        icon: v.optional(v.string()),
+        isActive: v.boolean(),
+        description: v.string(),
+      })
+    ),
+    totalExpenses: v.number(),
+    totalIncome: v.number(),
+    netAmount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    // Get the authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    console.log("Fetching budget usage for userId:", userId);
+    
+    // Fetch all active categories for the user
+    const categories = await ctx.db
+      .query("categories")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+    
+    console.log("Found categories:", categories.length);
+    
+    let totalExpenses = 0;
+    let totalIncome = 0;
+    
+    // For each category, fetch transactions and calculate stats
+    const categoriesWithUsage = await Promise.all(
+      categories.map(async (category) => {
+        // Get transactions for this category within the date range
+        const transactions = await ctx.db
+          .query("transactions")
+          .withIndex("by_userId_and_category", (q) => 
+            q.eq("userId", userId).eq("categoryId", category._id)
+          )
+          .filter((q) => 
+            q.and(
+              q.gte(q.field("date"), args.startDate),
+              q.lte(q.field("date"), args.endDate)
+            )
+          )
+          .collect();
+        
+        console.log("Category:", category.name, "Transactions:", transactions.length);
+        
+        // Calculate total amount spent/earned in this category
+        const amountSpent = transactions.reduce((sum, transaction) => 
+          sum + transaction.amount, 0);
+        
+        // Calculate percentage of budget used
+        const budget = category.budget || 0;
+        const percentageUsed = budget > 0 ? (amountSpent / budget) * 100 : 0;
+        
+        // Update totals based on category type
+        if (category.type === "expense") {
+          totalExpenses += amountSpent;
+        } else {
+          totalIncome += amountSpent;
+        }
+        
+        return {
+          _id: category._id,
+          name: category.name,
+          description: category.description,
+          type: category.type,
+          nature: category.nature,
+          budget: category.budget,
+          amountSpent,
+          percentageUsed: Math.round(percentageUsed * 100) / 100, // Round to 2 decimal places
+          color: category.color,
+          icon: category.icon,
+          isActive: category.isActive,
+        };
+      })
+    );
+    
+    // Calculate net amount (income - expenses)
+    const netAmount = totalIncome - totalExpenses;
+    
+    return {
+      categories: categoriesWithUsage,
+      totalExpenses,
+      totalIncome,
+      netAmount,
+    };
+  },
+});
