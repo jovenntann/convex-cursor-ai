@@ -5,16 +5,28 @@ import { useQuery } from "convex/react";
 import { BudgetProgress } from "@/components/budget-progress";
 import { useState } from "react";
 import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter
+} from "@/components/ui/card";
+import { 
+  RefreshCw,
+  ArrowUpIcon,
+  PiggyBankIcon,
+  BadgePercentIcon,
+  ReceiptIcon,
+  CreditCardIcon
+} from "lucide-react";
+import { BudgetProgressBar } from "@/components/BudgetProgressBar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export default function ProgressPage() {
-  // Date range state
-  const [dateRange, setDateRange] = useState(() => {
+  // Date range state - fixed to current month
+  const [dateRange] = useState(() => {
     // Get current date
     const today = new Date();
     
@@ -36,196 +48,281 @@ export default function ProgressPage() {
     endDate: dateRange.endDate
   });
   
-  // Handle preset date range selection
-  const handlePresetChange = (value: string) => {
-    const today = new Date();
-    
-    switch (value) {
-      case "current-month": {
-        // First day of current month
-        const firstDay = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
-        // Last day of current month
-        const lastDay = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999));
-        
-        setDateRange({
-          startDate: firstDay.getTime(),
-          endDate: lastDay.getTime()
-        });
-        break;
-      }
-      case "last-month": {
-        // First day of last month
-        const firstDay = new Date(Date.UTC(today.getFullYear(), today.getMonth() - 1, 1));
-        // Last day of last month
-        const lastDay = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999));
-        
-        setDateRange({
-          startDate: firstDay.getTime(),
-          endDate: lastDay.getTime()
-        });
-        break;
-      }
-      case "last-3-months": {
-        // First day of 3 months ago
-        const firstDay = new Date(Date.UTC(today.getFullYear(), today.getMonth() - 3, 1));
-        // Last day of current month
-        const lastDay = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999));
-        
-        setDateRange({
-          startDate: firstDay.getTime(),
-          endDate: lastDay.getTime()
-        });
-        break;
-      }
-      case "year-to-date": {
-        // First day of current year
-        const firstDay = new Date(Date.UTC(today.getFullYear(), 0, 1));
-        // Last day of current month
-        const lastDay = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999));
-        
-        setDateRange({
-          startDate: firstDay.getTime(),
-          endDate: lastDay.getTime()
-        });
-        break;
-      }
-      default:
-        break;
-    }
-  };
-  
-  // Handle date range changes
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'start' | 'end') => {
-    const date = new Date(e.target.value).getTime();
-    setDateRange(prev => ({
-      ...prev,
-      [type === 'start' ? 'startDate' : 'endDate']: date
-    }));
-  };
-  
   // Show loading state
   if (budgetUsageData === undefined) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2">
-        <div className="animate-pulse text-lg">Loading budget data...</div>
+        <RefreshCw className="size-8 animate-spin text-primary/80" />
+        <div className="text-lg font-medium">Loading budget data...</div>
       </div>
     );
   }
   
-  // Format date for display
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+    }).format(amount);
   };
+  
+  // Calculate summary data for each category type
+  const calculateCategorySummary = (categories: any[]) => {
+    if (!categories || categories.length === 0) return { totalBudget: 0, totalSpent: 0, remaining: 0, percentUsed: 0 };
+    
+    const totalBudget = categories.reduce((sum, category) => sum + (category.budget || 0), 0);
+    const totalSpent = categories.reduce((sum, category) => sum + category.amountSpent, 0);
+    const remaining = totalBudget - totalSpent;
+    const percentUsed = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+    
+    return { totalBudget, totalSpent, remaining, percentUsed };
+  };
+  
+  // Get income summary
+  const incomeSummary = calculateCategorySummary(
+    budgetUsageData.categories?.filter(c => c.type === "income") || []
+  );
+  
+  // Get fixed expenses summary
+  const fixedExpensesSummary = calculateCategorySummary(
+    budgetUsageData.categories?.filter(c => c.nature === "fixed" && c.type === "expense") || []
+  );
+  
+  // Get dynamic expenses summary
+  const dynamicExpensesSummary = calculateCategorySummary(
+    budgetUsageData.categories?.filter(c => c.nature === "dynamic" && c.type === "expense") || []
+  );
+  
+  // Get current month name
+  const currentMonth = format(new Date(dateRange.startDate), "MMMM yyyy");
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight">Budget Progress</h1>
-        <p className="text-muted-foreground">
-          Track your spending against your budget targets for the selected period.
+        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Budget Progress</h1>
+        <p className="text-muted-foreground max-w-2xl">
+          Tracking your budget performance for <span className="font-medium text-foreground">{currentMonth}</span>
         </p>
       </div>
       
-      {/* Date Range Selector */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-6 border-b pb-4">
-        <div className="text-muted-foreground">
-          Showing data for: <span className="font-medium text-foreground">{formatDate(dateRange.startDate)} - {formatDate(dateRange.endDate)}</span>
-        </div>
-        <div className="flex flex-wrap gap-3 items-center">
-          <Select onValueChange={handlePresetChange} defaultValue="current-month">
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select time period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="current-month">Current Month</SelectItem>
-              <SelectItem value="last-month">Previous Month</SelectItem>
-              <SelectItem value="last-3-months">Last 3 Months</SelectItem>
-              <SelectItem value="year-to-date">Year to Date</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex items-center gap-2">
-            <label htmlFor="start-date" className="text-sm font-medium">
-              From:
-            </label>
-            <input
-              id="start-date"
-              type="date"
-              className="px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={new Date(dateRange.startDate).toISOString().split('T')[0]}
-              onChange={(e) => handleDateChange(e, 'start')}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="end-date" className="text-sm font-medium">
-              To:
-            </label>
-            <input
-              id="end-date"
-              type="date"
-              className="px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={new Date(dateRange.endDate).toISOString().split('T')[0]}
-              onChange={(e) => handleDateChange(e, 'end')}
-            />
-          </div>
-        </div>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Income Summary Card */}
+        <Card className="border-0 shadow-md bg-gradient-to-br from-teal-50/90 to-white dark:from-teal-950/20 dark:to-background/90">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+            <div className="space-y-1">
+              <CardTitle className="text-base font-medium text-teal-700 dark:text-teal-300">Income Budget</CardTitle>
+              <CardDescription>Total income vs. target</CardDescription>
+            </div>
+            <div className="bg-teal-100 dark:bg-teal-900/40 p-2 rounded-full">
+              <ArrowUpIcon className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+            </div>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold text-teal-700 dark:text-teal-300">{formatCurrency(incomeSummary.totalSpent)}</span>
+                <span className="text-xs text-muted-foreground">of {formatCurrency(incomeSummary.totalBudget)}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold text-teal-700 dark:text-teal-300">
+                  {incomeSummary.percentUsed.toFixed(1)}%
+                </span>
+                <span className="text-xs text-muted-foreground">Target Achievement</span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <BudgetProgressBar 
+                value={Math.min(incomeSummary.percentUsed, 100)} 
+                gradientFrom="#f0fdfa" 
+                gradientTo="#2dd4bf"
+                height="h-3"
+                rounded={true}
+                animate={true}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="pt-0">
+            <div className="flex flex-col w-full">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <PiggyBankIcon className="h-3.5 w-3.5" />
+                  Remaining to Goal
+                </span>
+                <span className="font-medium text-teal-600 dark:text-teal-400">
+                  {formatCurrency(Math.max(incomeSummary.totalBudget - incomeSummary.totalSpent, 0))}
+                </span>
+              </div>
+            </div>
+          </CardFooter>
+        </Card>
+        
+        {/* Fixed Expenses Summary Card */}
+        <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50/90 to-white dark:from-blue-950/20 dark:to-background/90">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+            <div className="space-y-1">
+              <CardTitle className="text-base font-medium text-blue-700 dark:text-blue-300">Fixed Expenses</CardTitle>
+              <CardDescription>Recurring monthly costs</CardDescription>
+            </div>
+            <div className="bg-blue-100 dark:bg-blue-900/40 p-2 rounded-full">
+              <ReceiptIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(fixedExpensesSummary.totalSpent)}</span>
+                <span className="text-xs text-muted-foreground">of {formatCurrency(fixedExpensesSummary.totalBudget)}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                  {fixedExpensesSummary.percentUsed.toFixed(1)}%
+                </span>
+                <span className="text-xs text-muted-foreground">Budget Used</span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <BudgetProgressBar 
+                value={Math.min(fixedExpensesSummary.percentUsed, 100)} 
+                gradientFrom="#f0f9ff" 
+                gradientTo="#3b82f6"
+                height="h-3"
+                rounded={true}
+                animate={true}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="pt-0">
+            <div className="flex flex-col w-full">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <BadgePercentIcon className="h-3.5 w-3.5" />
+                  Remaining Budget
+                </span>
+                <span className="font-medium text-blue-600 dark:text-blue-400">
+                  {formatCurrency(Math.max(fixedExpensesSummary.remaining, 0))}
+                </span>
+              </div>
+            </div>
+          </CardFooter>
+        </Card>
+        
+        {/* Dynamic Expenses Summary Card */}
+        <Card className="border-0 shadow-md bg-gradient-to-br from-purple-50/90 to-white dark:from-purple-950/20 dark:to-background/90">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+            <div className="space-y-1">
+              <CardTitle className="text-base font-medium text-purple-700 dark:text-purple-300">Dynamic Expenses</CardTitle>
+              <CardDescription>Variable spending categories</CardDescription>
+            </div>
+            <div className="bg-purple-100 dark:bg-purple-900/40 p-2 rounded-full">
+              <CreditCardIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            </div>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold text-purple-700 dark:text-purple-300">{formatCurrency(dynamicExpensesSummary.totalSpent)}</span>
+                <span className="text-xs text-muted-foreground">of {formatCurrency(dynamicExpensesSummary.totalBudget)}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                  {dynamicExpensesSummary.percentUsed.toFixed(1)}%
+                </span>
+                <span className="text-xs text-muted-foreground">Budget Used</span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <BudgetProgressBar 
+                value={Math.min(dynamicExpensesSummary.percentUsed, 100)} 
+                gradientFrom="#faf5ff" 
+                gradientTo="#9333ea"
+                height="h-3"
+                rounded={true}
+                animate={true}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="pt-0">
+            <div className="flex flex-col w-full">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <BadgePercentIcon className="h-3.5 w-3.5" />
+                  Remaining Budget
+                </span>
+                <span className="font-medium text-purple-600 dark:text-purple-400">
+                  {formatCurrency(Math.max(dynamicExpensesSummary.remaining, 0))}
+                </span>
+              </div>
+            </div>
+          </CardFooter>
+        </Card>
       </div>
       
-      {/* 3-Column Budget Progress Layout */}
+      {/* Budget Categories */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Income */}
-        <div className="border rounded-lg p-5 bg-white/80 shadow-sm h-full">
-          <h2 className="text-xl font-medium text-gray-800 mb-4 border-b pb-2">Income Budget</h2>
-          {budgetUsageData.categories && budgetUsageData.categories.filter(c => c.type === "income").length > 0 ? (
-            <BudgetProgress 
-              categories={budgetUsageData.categories.filter(c => c.type === "income")} 
-              hideTitle={true}
-              singleType="income"
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-40">
-              <p className="text-gray-500">No income data available for this period.</p>
-            </div>
-          )}
-        </div>
+        {/* Income */}
+        <Card className="border-0 shadow-md bg-gradient-to-br from-teal-50/90 to-white dark:from-teal-950/20 dark:to-background/90">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl font-medium text-teal-700 dark:text-teal-300">Income Budget</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {budgetUsageData.categories && budgetUsageData.categories.filter(c => c.type === "income").length > 0 ? (
+              <BudgetProgress 
+                categories={budgetUsageData.categories.filter(c => c.type === "income")} 
+                hideTitle={true}
+                singleType="income"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                <p>No income data available for this period.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
         
-        {/* Center Column - Fixed Expenses */}
-        <div className="border rounded-lg p-5 bg-white/80 shadow-sm h-full">
-          <h2 className="text-xl font-medium text-gray-800 mb-4 border-b pb-2">Fixed Expenses</h2>
-          {budgetUsageData.categories && budgetUsageData.categories.filter(c => c.nature === "fixed" && c.type === "expense").length > 0 ? (
-            <BudgetProgress 
-              categories={budgetUsageData.categories.filter(c => c.nature === "fixed" && c.type === "expense")} 
-              hideTitle={true}
-              singleType="fixed"
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-40">
-              <p className="text-gray-500">No fixed expense data available.</p>
-              <p className="text-sm text-gray-400 mt-2">Try changing your date range.</p>
-            </div>
-          )}
-        </div>
+        {/* Fixed Expenses */}
+        <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50/90 to-white dark:from-blue-950/20 dark:to-background/90">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl font-medium text-blue-700 dark:text-blue-300">Fixed Expenses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {budgetUsageData.categories && budgetUsageData.categories.filter(c => c.nature === "fixed" && c.type === "expense").length > 0 ? (
+              <BudgetProgress 
+                categories={budgetUsageData.categories.filter(c => c.nature === "fixed" && c.type === "expense")} 
+                hideTitle={true}
+                singleType="fixed"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                <p>No fixed expense data available.</p>
+                <p className="text-sm mt-2">Try changing your date range.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
         
-        {/* Right Column - Dynamic Expenses */}
-        <div className="border rounded-lg p-5 bg-white/80 shadow-sm h-full">
-          <h2 className="text-xl font-medium text-gray-800 mb-4 border-b pb-2">Dynamic Expenses</h2>
-          {budgetUsageData.categories && budgetUsageData.categories.filter(c => c.nature === "dynamic" && c.type === "expense").length > 0 ? (
-            <BudgetProgress 
-              categories={budgetUsageData.categories.filter(c => c.nature === "dynamic" && c.type === "expense")} 
-              hideTitle={true}
-              singleType="dynamic"
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-40">
-              <p className="text-gray-500">No dynamic expense data available.</p>
-              <p className="text-sm text-gray-400 mt-2">Try changing your date range.</p>
-            </div>
-          )}
-        </div>
+        {/* Dynamic Expenses */}
+        <Card className="border-0 shadow-md bg-gradient-to-br from-purple-50/90 to-white dark:from-purple-950/20 dark:to-background/90">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl font-medium text-purple-700 dark:text-purple-300">Dynamic Expenses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {budgetUsageData.categories && budgetUsageData.categories.filter(c => c.nature === "dynamic" && c.type === "expense").length > 0 ? (
+              <BudgetProgress 
+                categories={budgetUsageData.categories.filter(c => c.nature === "dynamic" && c.type === "expense")} 
+                hideTitle={true}
+                singleType="dynamic"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                <p>No dynamic expense data available.</p>
+                <p className="text-sm mt-2">Try changing your date range.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
-} 
+}
