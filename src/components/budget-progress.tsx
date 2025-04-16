@@ -1,6 +1,6 @@
 "use client";
 
-import { Progress } from "./ui/progress";
+import { BudgetProgressBar } from "./BudgetProgressBar";
 
 type Category = {
   _id: string;
@@ -49,18 +49,61 @@ export function BudgetProgress({ categories, hideTitle = false, singleType }: Bu
     };
   };
   
-  // Get softer colors based on percentage
-  const getProgressColor = (category: Category) => {
-    // Override with custom color if present
-    if (category.color) return category.color;
+  // Get gradient colors based on category and percentage
+  const getGradientColors = (category: Category) => {
+    // Add debug logging
+    console.log(`Category: ${category.name}, Type: ${category.type}, Percentage: ${category.percentageUsed}`);
+    
+    // Override with custom color if present (convert to gradient)
+    if (category.color) {
+      // Create a slightly darker variant for the end of gradient
+      const lighterColor = category.color;
+      const darkerColor = adjustColor(category.color, -20); // slightly darker
+      console.log(`Using custom color: ${lighterColor} to ${darkerColor}`);
+      return { from: lighterColor, to: darkerColor };
+    }
+    
+    // Parse percentage to ensure it's a number and not a string
+    const percentage = parseFloat(String(category.percentageUsed));
     
     if (category.type === "expense") {
-      if (category.percentageUsed > 100) return "#fecaca"; // red-200 (much lighter)
-      if (category.percentageUsed > 80) return "#fed7aa"; // amber-200 (much lighter)
-      return "#a7f3d0"; // emerald-200 (much lighter)
+      if (percentage >= 100) {
+        // Red gradient for over budget (matching the image with lighter start)
+        console.log(`Using RED gradient (over budget): ${percentage}%`);
+        return { from: "#fef2f2", to: "#e11d48" }; // Ultra light pink to rich red
+      }
+      if (percentage >= 80) {
+        // Amber gradient for approaching budget limit (extra light version)
+        console.log(`Using AMBER gradient (near limit): ${percentage}%`);
+        return { from: "#fffbeb", to: "#fcd34d" }; // Ultra light amber to amber-300
+      }
+      // Green gradient for under budget (extra light version)
+      console.log(`Using GREEN gradient (under budget): ${percentage}%`);
+      return { from: "#ecfdf5", to: "#6ee7b7" }; // Ultra light emerald to emerald-300
     } else {
-      return "#bfdbfe"; // blue-200 (much lighter)
+      // Blue gradient for income (extra light version)
+      console.log(`Using BLUE gradient (income): ${percentage}%`);
+      return { from: "#f0f9ff", to: "#93c5fd" }; // Ultra light blue to blue-300
     }
+  };
+  
+  // Helper to adjust color brightness
+  const adjustColor = (hex: string, amount: number): string => {
+    // Remove # if present
+    hex = hex.replace('#', '');
+    
+    // Parse the hex string
+    let r = parseInt(hex.substring(0, 2), 16);
+    let g = parseInt(hex.substring(2, 4), 16);
+    let b = parseInt(hex.substring(4, 6), 16);
+    
+    // Adjust the color
+    r = Math.max(0, Math.min(255, r + amount));
+    g = Math.max(0, Math.min(255, g + amount));
+    b = Math.max(0, Math.min(255, b + amount));
+    
+    // Convert back to hex
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   };
   
   const getTextColor = (category: Category) => {
@@ -81,32 +124,38 @@ export function BudgetProgress({ categories, hideTitle = false, singleType }: Bu
     
     return (
       <div className="space-y-5">
-        {sortedCategories.map((category) => (
-          <div key={category._id} className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <div className="flex items-center gap-2">
-                {category.icon && <span className="text-lg">{category.icon}</span>}
-                <span className="font-medium">{category.name}</span>
+        {sortedCategories.map((category) => {
+          const gradientColors = getGradientColors(category);
+          return (
+            <div key={category._id} className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  {category.icon && <span className="text-lg">{category.icon}</span>}
+                  <span className="font-medium">{category.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>
+                    ${category.amountSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {category.budget 
+                      ? ` / $${category.budget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : ''}
+                  </span>
+                  <span className={`font-medium ${getTextColor(category)}`}>
+                    {category.percentageUsed.toFixed(1)}%
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span>
-                  ${category.amountSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  {category.budget 
-                    ? ` / $${category.budget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    : ''}
-                </span>
-                <span className={`font-medium ${getTextColor(category)}`}>
-                  {category.percentageUsed.toFixed(1)}%
-                </span>
-              </div>
+              <BudgetProgressBar 
+                value={Math.min(category.percentageUsed, 100)} 
+                gradientFrom={gradientColors.from}
+                gradientTo={gradientColors.to}
+                height="h-3"
+                rounded={true}
+                animate={true}
+              />
             </div>
-            <Progress 
-              value={Math.min(category.percentageUsed, 100)} 
-              color={getProgressColor(category)}
-              className="h-3 rounded-lg"
-            />
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
