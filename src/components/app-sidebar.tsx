@@ -42,6 +42,11 @@ const data = {
       icon: IconDashboard,
     },
     {
+      title: "Budget Progress",
+      url: "/dashboard/progress",
+      icon: IconChartBar,
+    },
+    {
       title: "Categories",
       url: "/dashboard/categories",
       icon: IconCategory,
