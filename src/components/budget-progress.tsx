@@ -56,6 +56,13 @@ export function BudgetProgress({ categories, hideTitle = false, singleType }: Bu
     
     // Override with custom color if present (convert to gradient)
     if (category.color) {
+      // Check if this is the specific red gradient we want to replace
+      if (category.color === "#f44336" || category.color === "#e02f22") {
+        // Replace the red gradient with cyan blue gradient
+        console.log(`Replacing red gradient with cyan blue for ${category.name}`);
+        return { from: "#e0f7fa", to: "#00bcd4" }; // Light cyan to cyan-500
+      }
+      
       // Create a slightly darker variant for the end of gradient
       const lighterColor = category.color;
       const darkerColor = adjustColor(category.color, -20); // slightly darker
@@ -68,22 +75,22 @@ export function BudgetProgress({ categories, hideTitle = false, singleType }: Bu
     
     if (category.type === "expense") {
       if (percentage >= 100) {
-        // Red gradient for over budget (matching the image with lighter start)
-        console.log(`Using RED gradient (over budget): ${percentage}%`);
-        return { from: "#fef2f2", to: "#e11d48" }; // Ultra light pink to rich red
+        // Cyan blue gradient for over budget
+        console.log(`Using CYAN gradient (over budget): ${percentage}%`);
+        return { from: "#e0f7fa", to: "#00bcd4" }; // Light cyan to cyan-500
       }
       if (percentage >= 80) {
-        // Amber gradient for approaching budget limit (extra light version)
-        console.log(`Using AMBER gradient (near limit): ${percentage}%`);
-        return { from: "#fffbeb", to: "#fcd34d" }; // Ultra light amber to amber-300
+        // Medium blue gradient for approaching budget limit
+        console.log(`Using MEDIUM BLUE gradient (near limit): ${percentage}%`);
+        return { from: "#f0f9ff", to: "#3b82f6" }; // Ultra light blue to blue-500
       }
-      // Green gradient for under budget (extra light version)
-      console.log(`Using GREEN gradient (under budget): ${percentage}%`);
-      return { from: "#ecfdf5", to: "#6ee7b7" }; // Ultra light emerald to emerald-300
+      // Light blue gradient for under budget
+      console.log(`Using LIGHT BLUE gradient (under budget): ${percentage}%`);
+      return { from: "#f0f9ff", to: "#60a5fa" }; // Ultra light blue to blue-400
     } else {
-      // Blue gradient for income (extra light version)
-      console.log(`Using BLUE gradient (income): ${percentage}%`);
-      return { from: "#f0f9ff", to: "#93c5fd" }; // Ultra light blue to blue-300
+      // Teal gradient for income (differentiating from expense blues)
+      console.log(`Using TEAL gradient (income): ${percentage}%`);
+      return { from: "#f0fdfa", to: "#2dd4bf" }; // Ultra light teal to teal-400
     }
   };
   

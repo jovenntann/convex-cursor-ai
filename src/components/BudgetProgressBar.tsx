@@ -46,9 +46,19 @@ export function BudgetProgressBar({
   
   // Apply gradient or solid color
   if (useGradient) {
-    progressStyle.backgroundImage = `linear-gradient(to right, ${gradientFrom}, ${gradientTo})`;
+    // Check for specific red gradient and replace with cyan
+    if (gradientFrom === "rgb(244, 67, 54)" && gradientTo === "rgb(224, 47, 34)") {
+      progressStyle.backgroundImage = "linear-gradient(to right, #e0f7fa, #00bcd4)"; // Cyan gradient
+    } else {
+      progressStyle.backgroundImage = `linear-gradient(to right, ${gradientFrom}, ${gradientTo})`;
+    }
   } else if (color) {
-    progressStyle.backgroundColor = color;
+    // Check for specific red color and replace with cyan
+    if (color === "rgb(244, 67, 54)" || color === "#f44336" || color === "rgb(224, 47, 34)" || color === "#e02f22") {
+      progressStyle.backgroundColor = "#00bcd4"; // Cyan color
+    } else {
+      progressStyle.backgroundColor = color;
+    }
   }
 
   return (
