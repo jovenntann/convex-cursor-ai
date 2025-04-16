@@ -2,17 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { Id } from "./_generated/dataModel";
-import { Doc } from "./_generated/dataModel";
 import { ConvexError } from "convex/values";
-
-interface TransactionWithCategory extends Doc<"transactions"> {
-  category: {
-    _id: Id<"categories">;
-    name: string;
-    icon?: string;
-    color?: string;
-  };
-}
 
 // Create a new transaction
 export const create = mutation({
