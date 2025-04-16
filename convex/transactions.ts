@@ -73,8 +73,23 @@ export const getWithCategory = query({
     // Start building our query
     let query;
     
+    // If date range is provided, use the date index
+    if (args.startDate !== undefined && args.endDate !== undefined) {
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_date", q => 
+          q.eq("userId", userId)
+           .gte("date", args.startDate as number)
+           .lte("date", args.endDate as number)
+        );
+      
+      // Apply type filter if needed
+      if (args.type) {
+        query = query.filter(q => q.eq(q.field("type"), args.type as "income" | "expense"));
+      }
+    }
     // Filter by type if specified
-    if (args.type) {
+    else if (args.type) {
       query = ctx.db
         .query("transactions")
         .withIndex("by_userId_and_type", q => 
@@ -86,14 +101,6 @@ export const getWithCategory = query({
       query = ctx.db
         .query("transactions")
         .withIndex("by_userId", q => q.eq("userId", userId));
-    }
-    
-    // Apply date range filter if provided
-    if (args.startDate !== undefined && args.endDate !== undefined) {
-      query = query.filter(q => 
-        q.gte(q.field("date"), args.startDate as number) && 
-        q.lte(q.field("date"), args.endDate as number)
-      );
     }
     
     // Order by date descending and take the limit
@@ -140,24 +147,38 @@ export const sumIncome = query({
     }
     const userId = identity.subject;
     
-    let query = ctx.db
-      .query("transactions")
-      .withIndex("by_userId_and_type", q => 
-        q.eq("userId", userId)
-         .eq("type", "income")
-      );
+    let query;
     
-    // Apply date range filter if provided
+    // If date range is provided, use the date index
     if (args.startDate !== undefined && args.endDate !== undefined) {
-      query = query.filter(q => 
-        q.gte(q.field("date"), args.startDate as number) && 
-        q.lte(q.field("date"), args.endDate as number)
-      );
-    }
-    
-    // Apply category filter if provided
-    if (args.categoryId !== undefined) {
-      query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_date", q => 
+          q.eq("userId", userId)
+            .gte("date", args.startDate as number)
+            .lte("date", args.endDate as number)
+        );
+      
+      // Apply type filter
+      query = query.filter(q => q.eq(q.field("type"), "income"));
+      
+      // Apply category filter if provided
+      if (args.categoryId !== undefined) {
+        query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
+      }
+    } else {
+      // Use the type index when no date range
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_type", q => 
+          q.eq("userId", userId)
+          .eq("type", "income")
+        );
+      
+      // Apply category filter if provided
+      if (args.categoryId !== undefined) {
+        query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
+      }
     }
     
     // Collect all matching transactions
@@ -183,31 +204,45 @@ export const sumExpense = query({
     }
     const userId = identity.subject;
     
-    let query = ctx.db
-      .query("transactions")
-      .withIndex("by_userId_and_type", q => 
-        q.eq("userId", userId)
-         .eq("type", "expense")
-      );
+    let query;
     
-    // Apply date range filter if provided
+    // If date range is provided, use the date index
     if (args.startDate !== undefined && args.endDate !== undefined) {
-      query = query.filter(q => 
-        q.gte(q.field("date"), args.startDate as number) && 
-        q.lte(q.field("date"), args.endDate as number)
-      );
-    }
-    
-    // Apply category filter if provided
-    if (args.categoryId !== undefined) {
-      query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_date", q => 
+          q.eq("userId", userId)
+            .gte("date", args.startDate as number)
+            .lte("date", args.endDate as number)
+        );
+      
+      // Apply type filter
+      query = query.filter(q => q.eq(q.field("type"), "expense"));
+      
+      // Apply category filter if provided
+      if (args.categoryId !== undefined) {
+        query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
+      }
+    } else {
+      // Use the type index when no date range
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_type", q => 
+          q.eq("userId", userId)
+          .eq("type", "expense")
+        );
+      
+      // Apply category filter if provided
+      if (args.categoryId !== undefined) {
+        query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
+      }
     }
     
     // Collect all matching transactions
     const transactions = await query.collect();
     
-    // Sum up the amounts (get absolute values for expenses)
-    return transactions.reduce((total, transaction) => total + Math.abs(transaction.amount), 0);
+    // Sum up the amounts
+    return transactions.reduce((total, transaction) => total + transaction.amount, 0);
   }
 });
 
@@ -342,6 +377,26 @@ export const getAllPaginated = query({
           );
       }
     } 
+    // If date range is provided, use the date index
+    else if (args.startDate !== undefined && args.endDate !== undefined) {
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_date", q => 
+          q.eq("userId", userId)
+           .gte("date", args.startDate as number)
+           .lte("date", args.endDate as number)
+        );
+        
+      // Apply additional type filter if needed
+      if (args.type) {
+        query = query.filter(q => q.eq(q.field("type"), args.type as "income" | "expense"));
+      }
+      
+      // Apply category filter if needed
+      if (args.categoryId) {
+        query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
+      }
+    }
     // Otherwise use regular indexes with sorting
     else {
       if (args.type) {
@@ -374,14 +429,6 @@ export const getAllPaginated = query({
       
       // Apply sorting direction if not using the search index
       query = query.order(direction);
-    }
-    
-    // Apply date range filter if provided
-    if (args.startDate !== undefined && args.endDate !== undefined) {
-      query = query.filter(q => 
-        q.gte(q.field("date"), args.startDate as number) && 
-        q.lte(q.field("date"), args.endDate as number)
-      );
     }
     
     // Get results with pagination
