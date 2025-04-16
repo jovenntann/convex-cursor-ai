@@ -27,28 +27,28 @@ import { cn } from "@/lib/utils";
 // Color scheme constants
 const COLOR_SCHEME = {
   income: {
-    gradientFrom: "#f0fdfa", // light teal
-    gradientTo: "#2dd4bf",   // teal-400
-    textColor: "text-teal-700 dark:text-teal-300",
-    accentColor: "text-teal-600 dark:text-teal-400",
-    bgLight: "from-teal-50/90 to-white dark:from-teal-950/20 dark:to-background/90",
-    bgAccent: "bg-teal-100 dark:bg-teal-900/40"
+    gradientFrom: "#f5f5f5", // light gray
+    gradientTo: "#737373",   // gray-500
+    textColor: "text-gray-700 dark:text-gray-300",
+    accentColor: "text-gray-600 dark:text-gray-400",
+    bgLight: "from-gray-50/90 to-white dark:from-gray-800/20 dark:to-background/90",
+    bgAccent: "bg-gray-200 dark:bg-gray-700/40"
   },
   fixed: {
-    gradientFrom: "#f0f9ff", // light blue
-    gradientTo: "#3b82f6",   // blue-500
-    textColor: "text-blue-700 dark:text-blue-300",
-    accentColor: "text-blue-600 dark:text-blue-400",
-    bgLight: "from-blue-50/90 to-white dark:from-blue-950/20 dark:to-background/90",
-    bgAccent: "bg-blue-100 dark:bg-blue-900/40"
+    gradientFrom: "#f5f5f5", // light gray
+    gradientTo: "#525252",   // gray-600
+    textColor: "text-gray-700 dark:text-gray-300",
+    accentColor: "text-gray-600 dark:text-gray-400",
+    bgLight: "from-gray-100/90 to-white dark:from-gray-800/20 dark:to-background/90",
+    bgAccent: "bg-gray-200 dark:bg-gray-700/40"
   },
   dynamic: {
-    gradientFrom: "#faf5ff", // light purple
-    gradientTo: "#9333ea",   // purple-600
-    textColor: "text-purple-700 dark:text-purple-300",
-    accentColor: "text-purple-600 dark:text-purple-400",
-    bgLight: "from-purple-50/90 to-white dark:from-purple-950/20 dark:to-background/90",
-    bgAccent: "bg-purple-100 dark:bg-purple-900/40"
+    gradientFrom: "#f5f5f5", // light gray
+    gradientTo: "#333333",   // gray-700
+    textColor: "text-gray-700 dark:text-gray-300",
+    accentColor: "text-gray-600 dark:text-gray-400",
+    bgLight: "from-gray-100/90 to-white dark:from-gray-800/20 dark:to-background/90",
+    bgAccent: "bg-gray-200 dark:bg-gray-700/40"
   }
 };
 
@@ -127,12 +127,12 @@ export default function ProgressPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Budget Progress</h1>
+      {/* <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-gray-700 to-gray-500 bg-clip-text text-transparent">Budget Progress</h1>
         <p className="text-muted-foreground max-w-2xl">
           Tracking your budget performance for <span className="font-medium text-foreground">{currentMonth}</span>
         </p>
-      </div>
+      </div> */}
       
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

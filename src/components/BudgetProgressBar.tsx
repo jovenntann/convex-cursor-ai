@@ -44,21 +44,13 @@ export function BudgetProgressBar({
     transition: animate ? 'width 0.5s ease-in-out' : 'none',
   };
   
-  // Apply gradient or solid color
+  // Apply gray color
   if (useGradient) {
-    // Check for specific red gradient and replace with cyan
-    if (gradientFrom === "rgb(244, 67, 54)" && gradientTo === "rgb(224, 47, 34)") {
-      progressStyle.backgroundImage = "linear-gradient(to right, #e0f7fa, #00bcd4)"; // Cyan gradient
-    } else {
-      progressStyle.backgroundImage = `linear-gradient(to right, ${gradientFrom}, ${gradientTo})`;
-    }
-  } else if (color) {
-    // Check for specific red color and replace with cyan
-    if (color === "rgb(244, 67, 54)" || color === "#f44336" || color === "rgb(224, 47, 34)" || color === "#e02f22") {
-      progressStyle.backgroundColor = "#00bcd4"; // Cyan color
-    } else {
-      progressStyle.backgroundColor = color;
-    }
+    // Use a grayscale gradient
+    progressStyle.backgroundImage = "linear-gradient(to right,rgb(201, 199, 199),#afafaf)"; // Light to medium gray
+  } else {
+    // Use a solid gray color
+    progressStyle.backgroundColor = "#737373"; // Medium gray
   }
 
   return (
@@ -83,7 +75,7 @@ export function BudgetProgressBar({
         <div
           className={cn(
             "h-full",
-            !useGradient && !color ? "bg-blue-300" : "",
+            !useGradient && !color ? "bg-gray-400" : "", // Changed from blue-300 to gray-400
             rounded ? "rounded-full" : "",
           )}
           style={progressStyle}

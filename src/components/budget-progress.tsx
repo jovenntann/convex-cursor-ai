@@ -73,25 +73,14 @@ export function BudgetProgress({ categories, hideTitle = false, singleType }: Bu
     // Parse percentage to ensure it's a number and not a string
     const percentage = parseFloat(String(category.percentageUsed));
     
-    if (category.type === "expense") {
-      if (percentage >= 100) {
-        // Cyan blue gradient for over budget
-        console.log(`Using CYAN gradient (over budget): ${percentage}%`);
-        return { from: "#e0f7fa", to: "#00bcd4" }; // Light cyan to cyan-500
-      }
-      if (percentage >= 80) {
-        // Medium blue gradient for approaching budget limit
-        console.log(`Using MEDIUM BLUE gradient (near limit): ${percentage}%`);
-        return { from: "#f0f9ff", to: "#3b82f6" }; // Ultra light blue to blue-500
-      }
-      // Light blue gradient for under budget
-      console.log(`Using LIGHT BLUE gradient (under budget): ${percentage}%`);
-      return { from: "#f0f9ff", to: "#60a5fa" }; // Ultra light blue to blue-400
-    } else {
-      // Teal gradient for income (differentiating from expense blues)
-      console.log(`Using TEAL gradient (income): ${percentage}%`);
-      return { from: "#f0fdfa", to: "#2dd4bf" }; // Ultra light teal to teal-400
+    if (percentage > 100) {
+      // Red gradient for over budget
+      console.log(`Using RED gradient (over budget): ${percentage}%`);
+      return { from: "#f44336", to: "#e02f22" }; // Red gradient
     }
+    // Green gradient for 100 and less than 100
+    console.log(`Using GREEN gradient (within budget): ${percentage}%`);
+    return { from: "#e0f7fa", to: "#34d399" }; // Light cyan to green-400
   };
   
   // Helper to adjust color brightness
@@ -114,13 +103,8 @@ export function BudgetProgress({ categories, hideTitle = false, singleType }: Bu
   };
   
   const getTextColor = (category: Category) => {
-    if (category.type === "expense") {
-      if (category.percentageUsed > 100) return "text-red-700";
-      if (category.percentageUsed > 80) return "text-amber-700";
-      return "text-emerald-700";
-    } else {
-      return "text-blue-700";
-    }
+    if (category.percentageUsed > 100) return "text-red-700";
+    return "text-emerald-700";
   };
   
   const renderCategoryList = (categoriesToRender: Category[]) => {
