@@ -12,6 +12,12 @@ export default function HomePage() {
   // Get recent transactions with their categories
   const transactions = useQuery(api.transactions.getWithCategory, { limit: 10 });
   
+  // Get recent income transactions
+  const recentIncomeTransactions = useQuery(api.transactions.getWithCategory, { 
+    limit: 10, 
+    type: "income" 
+  });
+  
   // Get counts for summary statistics
   const totalTransactions = useQuery(api.transactions.count, {});
   const incomeCount = useQuery(api.transactions.count, { type: "income" });
@@ -35,9 +41,13 @@ export default function HomePage() {
   // Get sum of all expense categories (fixed + dynamic)
   const totalExpensesCategories = useQuery(api.categories.sumTotalExpenseCategories);
   
+  // Track active tab
+  const [activeTab, setActiveTab] = useState("outline");
+  
   // Check loading state
   const isLoading = 
     transactions === undefined || 
+    recentIncomeTransactions === undefined ||
     totalTransactions === undefined || 
     incomeCount === undefined || 
     expenseCount === undefined || 
@@ -48,8 +58,8 @@ export default function HomePage() {
     dynamicExpensesTotal === undefined || 
     totalExpensesCategories === undefined;
   
-  // Format transactions for data table
-  const tableData = transactions ? transactions.map((transaction, index) => ({
+  // Format recent transactions for data table
+  const recentTransactionsData = transactions ? transactions.map((transaction, index) => ({
     id: index + 1,
     category: {
       icon: transaction.category.icon || "📁",
@@ -58,6 +68,19 @@ export default function HomePage() {
     date: new Date(transaction.date).toLocaleDateString(),
     description: transaction.description,
     amount: `${transaction.type === "income" ? "+" : "-"}$${Math.abs(transaction.amount).toFixed(2)}`,
+    type: transaction.type
+  })) : [];
+  
+  // Format income transactions for data table
+  const incomeTransactionsData = recentIncomeTransactions ? recentIncomeTransactions.map((transaction, index) => ({
+    id: index + 1,
+    category: {
+      icon: transaction.category.icon || "📁",
+      name: transaction.category.name
+    },
+    date: new Date(transaction.date).toLocaleDateString(),
+    description: transaction.description,
+    amount: `+$${Math.abs(transaction.amount).toFixed(2)}`,
     type: transaction.type
   })) : [];
 
@@ -128,7 +151,16 @@ export default function HomePage() {
         <div className="px-4 lg:px-6">
           <ChartAreaInteractive transactions={transactions || []} />
         </div>
-        <DataTable data={tableData} columnHeaders={tableHeaders} />
+        <DataTable 
+          data={activeTab === "past-performance" ? incomeTransactionsData : recentTransactionsData} 
+          columnHeaders={tableHeaders}
+          onTabChange={setActiveTab}
+          counts={{
+            income: recentIncomeTransactions?.length || 0,
+            paidExpenses: 0, // We would need data for these
+            unpaidExpenses: 0, // We would need data for these
+          }}
+        />
       </div>
     </div>
   )

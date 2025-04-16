@@ -37,7 +37,10 @@ export const create = mutation({
 // Get transactions with their category information
 export const getWithCategory = query({
   args: {
-    limit: v.optional(v.number())
+    limit: v.optional(v.number()),
+    type: v.optional(v.union(v.literal("income"), v.literal("expense"))),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number())
   },
   returns: v.array(
     v.object({
@@ -67,10 +70,34 @@ export const getWithCategory = query({
     
     const limit = args.limit ?? 10;
     
-    // Get transactions ordered by creation time
-    const transactions = await ctx.db
-      .query("transactions")
-      .withIndex("by_userId", q => q.eq("userId", userId))
+    // Start building our query
+    let query;
+    
+    // Filter by type if specified
+    if (args.type) {
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_type", q => 
+          q.eq("userId", userId)
+           .eq("type", args.type as "income" | "expense")
+        );
+    } else {
+      // Get all transactions for the user
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId", q => q.eq("userId", userId));
+    }
+    
+    // Apply date range filter if provided
+    if (args.startDate !== undefined && args.endDate !== undefined) {
+      query = query.filter(q => 
+        q.gte(q.field("date"), args.startDate as number) && 
+        q.lte(q.field("date"), args.endDate as number)
+      );
+    }
+    
+    // Order by date descending and take the limit
+    const transactions = await query
       .order("desc")
       .take(limit);
     
@@ -662,5 +689,78 @@ export const getReceiptsPaginated = query({
       isDone: paginationResult.isDone,
       continueCursor: paginationResult.continueCursor,
     };
+  },
+});
+
+// Get recent income transactions based on date range
+export const getRecentIncome = query({
+  args: {
+    startDate: v.number(),
+    endDate: v.number(),
+    limit: v.optional(v.number())
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("transactions"),
+      _creationTime: v.number(),
+      userId: v.string(),
+      categoryId: v.id("categories"),
+      amount: v.number(),
+      description: v.string(),
+      date: v.number(),
+      type: v.union(v.literal("income"), v.literal("expense")),
+      receiptId: v.optional(v.id("_storage")),
+      category: v.object({
+        _id: v.id("categories"),
+        name: v.string(),
+        icon: v.optional(v.string()),
+        color: v.optional(v.string())
+      })
+    })
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    const limit = args.limit ?? 10;
+    
+    // Query income transactions within the date range
+    const transactions = await ctx.db
+      .query("transactions")
+      .withIndex("by_userId_and_type", q => 
+        q.eq("userId", userId)
+         .eq("type", "income")
+      )
+      .filter(q => 
+        q.gte(q.field("date"), args.startDate) && 
+        q.lte(q.field("date"), args.endDate)
+      )
+      .order("desc")
+      .take(limit);
+    
+    // Fetch category details for each transaction
+    return await Promise.all(
+      transactions.map(async (transaction) => {
+        const category = await ctx.db.get(transaction.categoryId);
+        
+        return {
+          ...transaction,
+          category: category ? {
+            _id: category._id,
+            name: category.name,
+            icon: category.icon,
+            color: category.color
+          } : {
+            _id: transaction.categoryId,
+            name: "Unknown Category",
+            icon: undefined,
+            color: undefined
+          }
+        };
+      })
+    );
   },
 }); 

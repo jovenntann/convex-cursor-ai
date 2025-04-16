@@ -208,11 +208,24 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
 export function DataTable({
   data: initialData,
   columnHeaders,
+  onTabChange,
+  counts,
 }: {
   data: z.infer<typeof schema>[]
   columnHeaders?: Record<string, string>
+  onTabChange?: (tab: string) => void
+  counts?: {
+    income?: number
+    paidExpenses?: number
+    unpaidExpenses?: number
+  }
 }) {
   const [data, setData] = React.useState(() => initialData)
+  
+  // Update data state when props change
+  React.useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
   
   // Create columns with custom headers if provided
   const customColumns = React.useMemo(() => {
@@ -293,6 +306,11 @@ export function DataTable({
     <Tabs
       defaultValue="outline"
       className="w-full flex-col justify-start gap-6"
+      onValueChange={(value) => {
+        if (onTabChange) {
+          onTabChange(value);
+        }
+      }}
     >
       <div className="flex items-center justify-between px-4 lg:px-6">
         <Label htmlFor="view-selector" className="sr-only">
@@ -308,20 +326,40 @@ export function DataTable({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="outline">Recent Transactions</SelectItem>
-            <SelectItem value="past-performance">Recent Income</SelectItem>
-            <SelectItem value="key-personnel">Paid Fixed Expenses</SelectItem>
-            <SelectItem value="focus-documents">Unpaid Fixed Expenses</SelectItem>
+            <SelectItem value="past-performance">
+              Recent Income {counts?.income !== undefined && counts.income > 0 && 
+                <Badge variant="secondary" className="ml-2">{counts.income}</Badge>
+              }
+            </SelectItem>
+            <SelectItem value="key-personnel">
+              Paid Fixed Expenses {counts?.paidExpenses !== undefined && counts.paidExpenses > 0 && 
+                <Badge variant="secondary" className="ml-2">{counts.paidExpenses}</Badge>
+              }
+            </SelectItem>
+            <SelectItem value="focus-documents">
+              Unpaid Fixed Expenses {counts?.unpaidExpenses !== undefined && counts.unpaidExpenses > 0 && 
+                <Badge variant="secondary" className="ml-2">{counts.unpaidExpenses}</Badge>
+              }
+            </SelectItem>
           </SelectContent>
         </Select>
         <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
           <TabsTrigger value="outline">Recent Transactions</TabsTrigger>
           <TabsTrigger value="past-performance">
-            Recent Income <Badge variant="secondary">3</Badge>
+            Recent Income {counts?.income !== undefined && counts.income > 0 && 
+              <Badge variant="secondary">{counts.income}</Badge>
+            }
           </TabsTrigger>
           <TabsTrigger value="key-personnel">
-            Paid Fixed Expenses <Badge variant="secondary">2</Badge>
+            Paid Fixed Expenses {counts?.paidExpenses !== undefined && counts.paidExpenses > 0 && 
+              <Badge variant="secondary">{counts.paidExpenses}</Badge>
+            }
           </TabsTrigger>
-          <TabsTrigger value="focus-documents">Unpaid Fixed Expenses</TabsTrigger>
+          <TabsTrigger value="focus-documents">
+            Unpaid Fixed Expenses {counts?.unpaidExpenses !== undefined && counts.unpaidExpenses > 0 && 
+              <Badge variant="secondary">{counts.unpaidExpenses}</Badge>
+            }
+          </TabsTrigger>
         </TabsList>
         <div className="flex items-center gap-2">
           <DropdownMenu>
@@ -500,7 +538,55 @@ export function DataTable({
         value="past-performance"
         className="flex flex-col px-4 lg:px-6"
       >
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
+        <div className="overflow-hidden rounded-lg border">
+          <Table>
+            <TableHeader className="bg-muted sticky top-0 z-10">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    return (
+                      <TableHead key={header.id} colSpan={header.colSpan}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    )
+                  })}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No income transactions found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-between px-4 mt-4">
+          <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
+            Showing {table.getRowModel().rows.length} income transactions.
+          </div>
+        </div>
       </TabsContent>
       <TabsContent value="key-personnel" className="flex flex-col px-4 lg:px-6">
         <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
