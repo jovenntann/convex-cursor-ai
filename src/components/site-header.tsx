@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { ModeToggle } from "@/components/mode-toggle"
 
 interface SiteHeaderProps {
   username?: string;
@@ -18,6 +19,7 @@ export function SiteHeader({ username, onLogout }: SiteHeaderProps) {
         />
         <h1 className="text-base font-medium">Documents</h1>
         <div className="ml-auto flex items-center gap-2">
+          <ModeToggle />
           {username && <span className="text-sm mr-2">Welcome, {username}</span>}
           {onLogout && (
             <Button variant="outline" size="sm" onClick={onLogout}>
