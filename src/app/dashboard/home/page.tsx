@@ -7,15 +7,79 @@ import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { DataTable } from "@/components/data-table"
 import { SectionCards } from "@/components/section-cards"
 import { useState, useEffect } from "react";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 export default function HomePage() {
+  // Date range state
+  const [dateRange, setDateRange] = useState(() => {
+    // Get current date
+    const today = new Date();
+    
+    // Create first day of current month with UTC adjustment
+    const firstDay = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
+    
+    // Create last day of current month with UTC adjustment
+    const lastDay = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999));
+    
+    return {
+      startDate: firstDay.getTime(),
+      endDate: lastDay.getTime()
+    };
+  });
+  
+  // Handle preset date range selection
+  const handlePresetChange = (value: string) => {
+    const today = new Date();
+    
+    switch (value) {
+      case "current-month": {
+        // First day of current month
+        const firstDay = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
+        // Last day of current month
+        const lastDay = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999));
+        
+        setDateRange({
+          startDate: firstDay.getTime(),
+          endDate: lastDay.getTime()
+        });
+        break;
+      }
+      case "last-month": {
+        // First day of last month
+        const firstDay = new Date(Date.UTC(today.getFullYear(), today.getMonth() - 1, 1));
+        // Last day of last month
+        const lastDay = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999));
+        
+        setDateRange({
+          startDate: firstDay.getTime(),
+          endDate: lastDay.getTime()
+        });
+        break;
+      }
+      default:
+        break;
+    }
+  };
+  
   // Get recent transactions with their categories
-  const transactions = useQuery(api.transactions.getWithCategory, { limit: 10 });
+  const transactions = useQuery(api.transactions.getWithCategory, { 
+    limit: 10,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate
+  });
   
   // Get recent income transactions
   const recentIncomeTransactions = useQuery(api.transactions.getWithCategory, { 
     limit: 10, 
-    type: "income" 
+    type: "income",
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate
   });
   
   // Get counts for summary statistics
@@ -24,7 +88,10 @@ export default function HomePage() {
   const expenseCount = useQuery(api.transactions.count, { type: "expense" });
   
   // Get financial summary data
-  const summary = useQuery(api.transactions.getSummary, {});
+  const summary = useQuery(api.transactions.getSummary, {
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate
+  });
   
   // Get all categories
   const categories = useQuery(api.categories.getAll);
@@ -43,6 +110,15 @@ export default function HomePage() {
   
   // Track active tab
   const [activeTab, setActiveTab] = useState("outline");
+  
+  // Handle date range changes
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'start' | 'end') => {
+    const date = new Date(e.target.value).getTime();
+    setDateRange(prev => ({
+      ...prev,
+      [type === 'start' ? 'startDate' : 'endDate']: date
+    }));
+  };
   
   // Check loading state
   const isLoading = 
@@ -135,6 +211,46 @@ export default function HomePage() {
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+        {/* Date Range Selector */}
+        <div className="px-4 lg:px-6 flex flex-col sm:flex-row gap-3 items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold">Financial Dashboard</h2>
+          <div className="flex flex-wrap gap-3 items-center">
+            <Select onValueChange={handlePresetChange} defaultValue="current-month">
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="current-month">Current Month</SelectItem>
+                <SelectItem value="last-month">Last Month</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-2">
+              <label htmlFor="start-date" className="text-sm font-medium">
+                From:
+              </label>
+              <input
+                id="start-date"
+                type="date"
+                className="px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={new Date(dateRange.startDate).toISOString().split('T')[0]}
+                onChange={(e) => handleDateChange(e, 'start')}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="end-date" className="text-sm font-medium">
+                To:
+              </label>
+              <input
+                id="end-date"
+                type="date"
+                className="px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={new Date(dateRange.endDate).toISOString().split('T')[0]}
+                onChange={(e) => handleDateChange(e, 'end')}
+              />
+            </div>
+          </div>
+        </div>
+        
         <SectionCards 
           transactionCount={totalTransactions || 0}
           incomeCount={incomeCount || 0}
