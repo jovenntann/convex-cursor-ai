@@ -14,8 +14,12 @@ import {
   IconArrowUp,
   IconArrowDown,
   IconArrowsSort,
+  IconCalendar,
 } from "@tabler/icons-react";
 import { Id } from "@convex/_generated/dataModel";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 // Sort indicator component
 const SortIndicator = ({ active = false, direction = "asc" }: { active?: boolean, direction?: "asc" | "desc" }) => {
@@ -30,8 +34,11 @@ interface FilterBarProps {
   setSearchQuery: (query: string) => void;
   typeFilter: "income" | "expense" | null;
   categoryFilter: Id<"categories"> | null;
+  startDate: Date | null;
+  endDate: Date | null;
   onTypeFilterChange: (value: string) => void;
   onCategoryFilterChange: (value: string) => void;
+  onDateRangeChange: (start: Date | null, end: Date | null) => void;
   sortByDate: boolean;
   sortByAmount: boolean;
   sortByDescription: boolean;
@@ -58,8 +65,11 @@ export function FilterBar({
   setSearchQuery,
   typeFilter,
   categoryFilter,
+  startDate,
+  endDate,
   onTypeFilterChange,
   onCategoryFilterChange,
+  onDateRangeChange,
   sortByDate,
   sortByAmount,
   sortByDescription,
@@ -72,6 +82,22 @@ export function FilterBar({
   function clearSearch() {
     setSearchQuery("");
   }
+
+  function handleStartDateChange(date: Date | undefined) {
+    onDateRangeChange(date || null, endDate);
+  }
+
+  function handleEndDateChange(date: Date | undefined) {
+    onDateRangeChange(startDate, date || null);
+  }
+
+  function clearDateRange() {
+    onDateRangeChange(null, null);
+  }
+
+  const formatDate = (date: Date | null) => {
+    return date ? format(date, "MMM d, yyyy") : "";
+  };
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
@@ -166,6 +192,56 @@ export function FilterBar({
             ))}
           </SelectContent>
         </Select>
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="flex items-center gap-2 h-9">
+              <IconCalendar className="h-4 w-4" />
+              {startDate && endDate ? (
+                <span className="text-sm">
+                  {formatDate(startDate)} - {formatDate(endDate)}
+                </span>
+              ) : (
+                <span className="text-sm">Date Range</span>
+              )}
+              {(startDate || endDate) && (
+                <div
+                  className="flex items-center justify-center h-5 w-5 p-0 ml-1 rounded-full hover:bg-gray-200 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearDateRange();
+                  }}
+                >
+                  <IconX className="h-3 w-3" />
+                  <span className="sr-only">Clear date range</span>
+                </div>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <div className="flex flex-col sm:flex-row gap-2 p-2">
+              <div>
+                <p className="text-sm font-medium mb-2">Start Date</p>
+                <Calendar
+                  mode="single"
+                  selected={startDate || undefined}
+                  onSelect={handleStartDateChange}
+                  initialFocus
+                />
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-2">End Date</p>
+                <Calendar
+                  mode="single"
+                  selected={endDate || undefined}
+                  onSelect={handleEndDateChange}
+                  initialFocus
+                  disabled={(date: Date) => startDate ? date < startDate : false}
+                />
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );
