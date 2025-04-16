@@ -71,7 +71,7 @@ export function SectionCards({
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Total Expenses</CardDescription>
+          <CardDescription>Total Fixed Expenses</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {formatCurrency(totalExpense)}
           </CardTitle>
@@ -84,16 +84,16 @@ export function SectionCards({
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Expense tracking <IconTrendingDown className="size-4" />
+            Expense Transactions <IconTrendingDown className="size-4" />
           </div>
           <div className="text-muted-foreground">
-            Total expenses across all categories
+            Total Transaction Expenses under Fix Categories
           </div>
         </CardFooter>
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Net Balance</CardDescription>
+          <CardDescription>Total Dynamic Expenses</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {formatCurrency(netAmount)}
           </CardTitle>
@@ -106,30 +106,30 @@ export function SectionCards({
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            {netAmount >= 0 ? "Positive balance" : "Negative balance"} 
+            Expense transations
             {netAmount >= 0 ? <IconTrendingUp className="size-4" /> : <IconTrendingDown className="size-4" />}
           </div>
-          <div className="text-muted-foreground">Income minus expenses</div>
+          <div className="text-muted-foreground">Total Transaction Expenses under Dynamic Categories</div>
         </CardFooter>
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Categories</CardDescription>
+          <CardDescription>Total Expenses</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {categoryCount}
+            {formatCurrency(totalExpensesCategories)}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp />
-              Active
+              <IconTrendingDown />
+              Budgeted
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Spending categories <IconTrendingUp className="size-4" />
+            Expense Transactions <IconTrendingDown className="size-4" />
           </div>
-          <div className="text-muted-foreground">Active spending categories</div>
+          <div className="text-muted-foreground">Total Transaction Expenses</div>
         </CardFooter>
       </Card>
       <Card className="@container/card">
@@ -154,7 +154,7 @@ export function SectionCards({
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Fixed Expenses</CardDescription>
+          <CardDescription>Fixed Category Expenses</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {formatCurrency(fixedExpensesTotal)}
           </CardTitle>
@@ -169,12 +169,12 @@ export function SectionCards({
           <div className="line-clamp-1 flex gap-2 font-medium">
             Fixed expenses <IconTrendingDown className="size-4" />
           </div>
-          <div className="text-muted-foreground">Total monthly fixed expenses</div>
+          <div className="text-muted-foreground">Total fixed expense budgets</div>
         </CardFooter>
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Dynamic Expenses</CardDescription>
+          <CardDescription>Dynamic Category Expenses</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {formatCurrency(dynamicExpensesTotal)}
           </CardTitle>
@@ -194,22 +194,22 @@ export function SectionCards({
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Total Budgeted Expenses</CardDescription>
+          <CardDescription>Total Category Budgets</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {formatCurrency(totalExpensesCategories)}
+            {formatCurrency(fixedExpensesTotal + dynamicExpensesTotal)}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
               <IconTrendingDown />
-              Combined
+              Budgeted
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            All expenses <IconTrendingDown className="size-4" />
+            All expense categories <IconTrendingDown className="size-4" />
           </div>
-          <div className="text-muted-foreground">Fixed + dynamic expense budgets</div>
+          <div className="text-muted-foreground">Total budgeted for all expense categories</div>
         </CardFooter>
       </Card>
     </div>

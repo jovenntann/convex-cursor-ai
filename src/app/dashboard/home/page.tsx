@@ -96,7 +96,23 @@ export default function HomePage() {
   // Get all categories
   const categories = useQuery(api.categories.getAll);
   
-  // Get sum of fixed expenses
+  // Get transaction expenses by category type
+  const fixedCategoryExpenses = useQuery(api.transactions.sumFixedCategoryExpenses, {
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate
+  });
+  
+  const dynamicCategoryExpenses = useQuery(api.transactions.sumDynamicCategoryExpenses, {
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate
+  });
+  
+  const totalTransactionExpenses = useQuery(api.transactions.getTotalTransactionExpenses, {
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate
+  });
+  
+  // Get sum of fixed expenses (budget)
   const fixedExpensesTotal = useQuery(api.categories.sumFixedExpenses);
   
   // Get sum of income categories
@@ -132,7 +148,10 @@ export default function HomePage() {
     fixedExpensesTotal === undefined || 
     incomeCategoriesTotal === undefined || 
     dynamicExpensesTotal === undefined || 
-    totalExpensesCategories === undefined;
+    totalExpensesCategories === undefined ||
+    fixedCategoryExpenses === undefined ||
+    dynamicCategoryExpenses === undefined ||
+    totalTransactionExpenses === undefined;
   
   // Format recent transactions for data table
   const recentTransactionsData = transactions ? transactions.map((transaction, index) => ({
@@ -257,12 +276,12 @@ export default function HomePage() {
           expenseCount={expenseCount || 0}
           categoryCount={categories?.length || 0}
           totalIncome={financialSummary.totalIncome}
-          totalExpense={financialSummary.totalExpense}
-          netAmount={financialSummary.netAmount}
+          totalExpense={fixedCategoryExpenses || 0}
+          netAmount={dynamicCategoryExpenses || 0}
           fixedExpensesTotal={fixedExpensesTotal || 0}
           incomeCategoriesTotal={incomeCategoriesTotal || 0}
           dynamicExpensesTotal={dynamicExpensesTotal || 0}
-          totalExpensesCategories={totalExpensesCategories || 0}
+          totalExpensesCategories={totalTransactionExpenses || 0}
         />
         <div className="px-4 lg:px-6">
           <ChartAreaInteractive transactions={transactions || []} />

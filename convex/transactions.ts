@@ -849,4 +849,192 @@ export const getRecentIncome = query({
       })
     );
   },
+});
+
+// Get transactions sum for fixed expense categories for the authenticated user
+export const sumFixedCategoryExpenses = query({
+  args: {
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number())
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    // Get all fixed expense categories for the user
+    const fixedExpenseCategories = await ctx.db
+      .query("categories")
+      .withIndex("by_userId_type_and_nature", q => 
+        q.eq("userId", userId)
+         .eq("type", "expense")
+         .eq("nature", "fixed")
+      )
+      .collect();
+    
+    // Extract the category IDs
+    const fixedCategoryIds = fixedExpenseCategories.map(category => category._id);
+    
+    // If no fixed categories, return 0
+    if (fixedCategoryIds.length === 0) {
+      return 0;
+    }
+    
+    let transactions = [];
+    
+    // Build query based on date range
+    if (args.startDate !== undefined && args.endDate !== undefined) {
+      const query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_date", q => 
+          q.eq("userId", userId)
+           .gte("date", args.startDate as number)
+           .lte("date", args.endDate as number)
+        )
+        .filter(q => q.eq(q.field("type"), "expense"));
+      
+      // Get all expense transactions
+      transactions = await query.collect();
+      
+      // Filter by fixed category IDs
+      transactions = transactions.filter(transaction => 
+        fixedCategoryIds.includes(transaction.categoryId));
+    } else {
+      const query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_type", q => 
+          q.eq("userId", userId)
+           .eq("type", "expense")
+        );
+        
+      // Get all expense transactions
+      transactions = await query.collect();
+      
+      // Filter by fixed category IDs
+      transactions = transactions.filter(transaction => 
+        fixedCategoryIds.includes(transaction.categoryId));
+    }
+    
+    // Sum up the amounts
+    return transactions.reduce((total, transaction) => total + Math.abs(transaction.amount), 0);
+  }
+});
+
+// Get transactions sum for dynamic expense categories for the authenticated user
+export const sumDynamicCategoryExpenses = query({
+  args: {
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number())
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    // Get all dynamic expense categories for the user
+    const dynamicExpenseCategories = await ctx.db
+      .query("categories")
+      .withIndex("by_userId_type_and_nature", q => 
+        q.eq("userId", userId)
+         .eq("type", "expense")
+         .eq("nature", "dynamic")
+      )
+      .collect();
+    
+    // Extract the category IDs
+    const dynamicCategoryIds = dynamicExpenseCategories.map(category => category._id);
+    
+    // If no dynamic categories, return 0
+    if (dynamicCategoryIds.length === 0) {
+      return 0;
+    }
+    
+    let transactions = [];
+    
+    // Build query based on date range
+    if (args.startDate !== undefined && args.endDate !== undefined) {
+      const query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_date", q => 
+          q.eq("userId", userId)
+           .gte("date", args.startDate as number)
+           .lte("date", args.endDate as number)
+        )
+        .filter(q => q.eq(q.field("type"), "expense"));
+        
+      // Get all expense transactions
+      transactions = await query.collect();
+      
+      // Filter by dynamic category IDs
+      transactions = transactions.filter(transaction => 
+        dynamicCategoryIds.includes(transaction.categoryId));
+    } else {
+      const query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_type", q => 
+          q.eq("userId", userId)
+           .eq("type", "expense")
+        );
+        
+      // Get all expense transactions
+      transactions = await query.collect();
+      
+      // Filter by dynamic category IDs
+      transactions = transactions.filter(transaction => 
+        dynamicCategoryIds.includes(transaction.categoryId));
+    }
+    
+    // Sum up the amounts
+    return transactions.reduce((total, transaction) => total + Math.abs(transaction.amount), 0);
+  }
+});
+
+// Get all transactions expenses (total spending across all categories)
+export const getTotalTransactionExpenses = query({
+  args: {
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number())
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    let query;
+    
+    // If date range is provided, use the date index
+    if (args.startDate !== undefined && args.endDate !== undefined) {
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_date", q => 
+          q.eq("userId", userId)
+           .gte("date", args.startDate as number)
+           .lte("date", args.endDate as number)
+        )
+        .filter(q => q.eq(q.field("type"), "expense"));
+    } else {
+      // Use the type index when no date range
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_type", q => 
+          q.eq("userId", userId)
+           .eq("type", "expense")
+        );
+    }
+    
+    // Collect all matching transactions
+    const transactions = await query.collect();
+    
+    // Sum up the amounts
+    return transactions.reduce((total, transaction) => total + Math.abs(transaction.amount), 0);
+  }
 }); 
