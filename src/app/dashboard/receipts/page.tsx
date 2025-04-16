@@ -23,6 +23,8 @@ export default function ReceiptsPage() {
   const [categoryFilter, setCategoryFilter] = useState<Id<"categories"> | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const [dataRefreshKey, setDataRefreshKey] = useState(0);
   const [transactionToDelete, setTransactionToDelete] = useState<{ id: Id<"transactions">; description: string } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -62,7 +64,9 @@ export default function ReceiptsPage() {
     sortDirection,
     ...(typeFilter ? { type: typeFilter } : {}),
     ...(categoryFilter ? { categoryId: categoryFilter } : {}),
-    ...(debouncedSearchQuery ? { searchQuery: debouncedSearchQuery } : {})
+    ...(debouncedSearchQuery ? { searchQuery: debouncedSearchQuery } : {}),
+    ...(startDate ? { startDate: startDate.getTime() } : {}),
+    ...(endDate ? { endDate: endDate.getTime() } : {})
   }) || { page: [], isDone: true, continueCursor: null };
 
   function handleNextPage() {
@@ -136,6 +140,12 @@ export default function ReceiptsPage() {
       setCategoryFilter(value as Id<"categories">);
     }
     setCursor(null); // Reset to first page when changing filter
+  }
+  
+  function handleDateRangeChange(start: Date | null, end: Date | null) {
+    setStartDate(start);
+    setEndDate(end);
+    setCursor(null); // Reset to first page when changing date range
   }
   
   // Handle delete confirmation for a transaction
@@ -253,8 +263,11 @@ export default function ReceiptsPage() {
             setSearchQuery={setSearchQuery}
             typeFilter={typeFilter}
             categoryFilter={categoryFilter}
+            startDate={startDate}
+            endDate={endDate}
             onTypeFilterChange={handleTypeFilterChange}
             onCategoryFilterChange={handleCategoryFilterChange}
+            onDateRangeChange={handleDateRangeChange}
             sortByDate={sortByDate}
             sortByAmount={sortByAmount}
             sortByDescription={sortByDescription}

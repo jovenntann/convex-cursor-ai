@@ -38,7 +38,7 @@ interface FilterBarProps {
   endDate: Date | null;
   onTypeFilterChange: (value: string) => void;
   onCategoryFilterChange: (value: string) => void;
-  onDateRangeChange: (start: Date | null, end: Date | null) => void;
+  onDateRangeChange?: (start: Date | null, end: Date | null) => void;
   sortByDate: boolean;
   sortByAmount: boolean;
   sortByDescription: boolean;
@@ -69,7 +69,7 @@ export function FilterBar({
   endDate,
   onTypeFilterChange,
   onCategoryFilterChange,
-  onDateRangeChange,
+  onDateRangeChange = () => {},
   sortByDate,
   sortByAmount,
   sortByDescription,
