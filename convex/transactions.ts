@@ -40,7 +40,8 @@ export const getWithCategory = query({
     limit: v.optional(v.number()),
     type: v.optional(v.union(v.literal("income"), v.literal("expense"))),
     startDate: v.optional(v.number()),
-    endDate: v.optional(v.number())
+    endDate: v.optional(v.number()),
+    sortDirection: v.optional(v.union(v.literal("asc"), v.literal("desc")))
   },
   returns: v.array(
     v.object({
@@ -103,10 +104,12 @@ export const getWithCategory = query({
         .withIndex("by_userId", q => q.eq("userId", userId));
     }
     
-    // Order by date descending and take the limit
-    const transactions = await query
-      .order("desc")
-      .take(limit);
+    // Apply sort direction to the date-filtered query
+    const direction = args.sortDirection || "desc";
+    query = query.order(direction);
+    
+    // Take the limit
+    const transactions = await query.take(limit);
     
     // Fetch category details for each transaction
     return await Promise.all(
@@ -264,31 +267,43 @@ export const getSummary = query({
     }
     const userId = identity.subject;
     
-    let incomeQuery = ctx.db
-      .query("transactions")
-      .withIndex("by_userId_and_type", q => 
-        q.eq("userId", userId)
-         .eq("type", "income")
-      );
+    let incomeQuery;
+    let expenseQuery;
     
-    let expenseQuery = ctx.db
-      .query("transactions")
-      .withIndex("by_userId_and_type", q => 
-        q.eq("userId", userId)
-         .eq("type", "expense")
-      );
-    
-    // Apply date range filter if provided
+    // If date range is provided, use the date index
     if (args.startDate !== undefined && args.endDate !== undefined) {
-      incomeQuery = incomeQuery.filter(q => 
-        q.gte(q.field("date"), args.startDate as number) && 
-        q.lte(q.field("date"), args.endDate as number)
-      );
-      
-      expenseQuery = expenseQuery.filter(q => 
-        q.gte(q.field("date"), args.startDate as number) && 
-        q.lte(q.field("date"), args.endDate as number)
-      );
+      incomeQuery = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_date", q => 
+          q.eq("userId", userId)
+            .gte("date", args.startDate as number)
+            .lte("date", args.endDate as number)
+        )
+        .filter(q => q.eq(q.field("type"), "income"));
+        
+      expenseQuery = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_date", q => 
+          q.eq("userId", userId)
+            .gte("date", args.startDate as number)
+            .lte("date", args.endDate as number)
+        )
+        .filter(q => q.eq(q.field("type"), "expense"));
+    } else {
+      // Without date range, use the type index
+      incomeQuery = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_type", q => 
+          q.eq("userId", userId)
+           .eq("type", "income")
+        );
+        
+      expenseQuery = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_type", q => 
+          q.eq("userId", userId)
+           .eq("type", "expense")
+        );
     }
     
     // Collect transactions by type
@@ -396,6 +411,9 @@ export const getAllPaginated = query({
       if (args.categoryId) {
         query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
       }
+      
+      // Apply sort direction for date-filtered query
+      query = query.order(direction);
     }
     // Otherwise use regular indexes with sorting
     else {
@@ -645,7 +663,8 @@ export const getReceiptsPaginated = query({
     categoryId: v.optional(v.id("categories")),
     searchQuery: v.optional(v.string()),
     startDate: v.optional(v.number()),
-    endDate: v.optional(v.number())
+    endDate: v.optional(v.number()),
+    sortDirection: v.optional(v.union(v.literal("asc"), v.literal("desc")))
   },
   returns: v.object({
     page: v.array(v.object({
@@ -669,28 +688,48 @@ export const getReceiptsPaginated = query({
     continueCursor: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
-    // Query only transactions that have receipts
-    let query = ctx.db
-      .query("transactions")
-      .filter((q) => q.neq(q.field("receiptId"), undefined));
-    
-    // Apply additional filters
-    if (args.categoryId) {
-      query = query.filter((q) => q.eq(q.field("categoryId"), args.categoryId));
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
     }
+    const userId = identity.subject;
+    const direction = args.sortDirection || "desc";
     
-    // Date range filter (only if both start and end dates are provided)
+    // Start building our query
+    let query;
+    
+    // If date range is provided, use the date index
     if (args.startDate !== undefined && args.endDate !== undefined) {
-      query = query.filter((q) => 
-        q.and(
-          q.gte(q.field("date"), args.startDate as number), 
-          q.lte(q.field("date"), args.endDate as number)
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId_and_date", q => 
+          q.eq("userId", userId)
+           .gte("date", args.startDate as number)
+           .lte("date", args.endDate as number)
         )
-      );
+        // Filter for receipt existence
+        .filter(q => q.neq(q.field("receiptId"), undefined));
+        
+      // Apply category filter if needed
+      if (args.categoryId) {
+        query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
+      }
+    } else {
+      // Without date range, use the userId index
+      query = ctx.db
+        .query("transactions")
+        .withIndex("by_userId", q => q.eq("userId", userId))
+        // Filter for receipt existence
+        .filter(q => q.neq(q.field("receiptId"), undefined));
+        
+      // Apply category filter if needed
+      if (args.categoryId) {
+        query = query.filter(q => q.eq(q.field("categoryId"), args.categoryId as Id<"categories">));
+      }
     }
     
     // Apply ordering and paginate
-    const paginationResult = await query.order("desc").paginate(args.paginationOpts);
+    const paginationResult = await query.order(direction).paginate(args.paginationOpts);
     
     // Get categories for all transactions
     const transactionsWithCategory = await Promise.all(
@@ -744,7 +783,8 @@ export const getRecentIncome = query({
   args: {
     startDate: v.number(),
     endDate: v.number(),
-    limit: v.optional(v.number())
+    limit: v.optional(v.number()),
+    sortDirection: v.optional(v.union(v.literal("asc"), v.literal("desc")))
   },
   returns: v.array(
     v.object({
@@ -773,19 +813,18 @@ export const getRecentIncome = query({
     const userId = identity.subject;
     
     const limit = args.limit ?? 10;
+    const direction = args.sortDirection || "desc";
     
-    // Query income transactions within the date range
+    // Query income transactions within the date range using the date index
     const transactions = await ctx.db
       .query("transactions")
-      .withIndex("by_userId_and_type", q => 
+      .withIndex("by_userId_and_date", q => 
         q.eq("userId", userId)
-         .eq("type", "income")
+         .gte("date", args.startDate)
+         .lte("date", args.endDate)
       )
-      .filter(q => 
-        q.gte(q.field("date"), args.startDate) && 
-        q.lte(q.field("date"), args.endDate)
-      )
-      .order("desc")
+      .filter(q => q.eq(q.field("type"), "income"))
+      .order(direction)
       .take(limit);
     
     // Fetch category details for each transaction
