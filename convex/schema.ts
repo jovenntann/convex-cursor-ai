@@ -6,6 +6,7 @@ import { v } from "convex/values";
  * 
  * Users table:
  * - Authenticate users by token identifier (by_token)
+ * - Find users by telegramUserId (by_telegramUserId)
  * 
  * Categories table:
  * - List all categories of a specific user (by_userId)
@@ -27,6 +28,14 @@ import { v } from "convex/values";
  * - Track spending/income by category over time
  * - Support cascading delete when removing categories
  * - Search transactions by description with type filtering (search_description)
+ * 
+ * Receipts table:
+ * - Track receipts by user (by_userId)
+ * - Filter receipts by status (by_userId_and_status)
+ * - View receipts chronologically (by_userId_and_date)
+ * - Group receipts by category (by_userId_and_category)
+ * - Filter by type (by_userId_and_type)
+ * - Search receipts by description (search_description)
  */
 export default defineSchema({
   users: defineTable({
@@ -36,7 +45,11 @@ export default defineSchema({
     userId: v.string(),
     tokenIdentifier: v.string(),
     createdAt: v.string(),
-  }).index("by_token", ["tokenIdentifier"]),
+    telegramUserId: v.optional(v.string()),
+    updatedAt: v.optional(v.string()),
+  })
+    .index("by_token", ["tokenIdentifier"])
+    .index("by_telegramUserId", ["telegramUserId"]),
   
   // Categories table
   categories: defineTable({
@@ -81,5 +94,28 @@ export default defineSchema({
     .searchIndex("search_description", {
       searchField: "description",
       filterFields: ["userId", "type"]
+    }),
+    
+  // Receipts table
+  receipts: defineTable({
+    userId: v.optional(v.string()),
+    date: v.string(),
+    type: v.union(v.literal("income"), v.literal("expense")),
+    description: v.string(),
+    categoryId: v.id("categories"),
+    amount: v.number(), // Using v.number() for float64 as per Convex guidelines
+    receiptId: v.optional(v.id("_storage")),
+    status: v.union(v.literal("PENDING"), v.literal("APPROVED"))
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_status", ["userId", "status"])
+    .index("by_userId_and_date", ["userId", "date"])
+    .index("by_userId_and_category", ["userId", "categoryId"])
+    .index("by_userId_and_type", ["userId", "type"])
+    .index("by_category", ["categoryId"])
+    .index("by_date", ["date"])
+    .searchIndex("search_description", {
+      searchField: "description",
+      filterFields: ["userId", "type", "status"]
     }),
 }); 

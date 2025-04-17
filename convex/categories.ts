@@ -4,6 +4,7 @@ import { paginationOptsValidator } from "convex/server";
 import { Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
 import { ConvexError } from "convex/values";
+import { internalMutation } from "./_generated/server";
 
 // Get all categories for the authenticated user
 export const getAll = query({
@@ -748,5 +749,22 @@ export const getCategoriesWithBudgetUsage = query({
       totalIncome,
       netAmount,
     };
+  },
+});
+
+/**
+ * Get all categories for a user
+ */
+export const getCategoriesMutation = internalMutation({
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const categories = await ctx.db
+      .query("categories")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    
+    return categories;
   },
 });

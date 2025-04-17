@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 
 export const getUser = query({
   args: {},
@@ -67,5 +67,52 @@ export const store = mutation({
       tokenIdentifier: identity.tokenIdentifier,
       createdAt: new Date().toISOString(),
     });
+  },
+});
+
+/**
+ * Link a Telegram user ID to an existing user
+ */
+export const linkTelegramUser = internalMutation({
+  args: {
+    telegramUserId: v.string(),
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Find the user by userId
+    const users = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .collect();
+    
+    if (users.length === 0) {
+      throw new Error(`User not found with userId: ${args.userId}`);
+    }
+    
+    // Update the user with the telegramUserId
+    const userId = users[0]._id;
+    await ctx.db.patch(userId, {
+      telegramUserId: args.telegramUserId,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return userId;
+  },
+});
+
+/**
+ * Get a user by Telegram user ID
+ */
+export const getUserByTelegramId = internalMutation({
+  args: {
+    telegramUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_telegramUserId", (q) => q.eq("telegramUserId", args.telegramUserId))
+      .collect();
+    
+    return users.length > 0 ? users[0] : null;
   },
 }); 
