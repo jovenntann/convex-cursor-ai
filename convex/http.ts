@@ -147,7 +147,7 @@ http.route({
           Extract Transaction Details from this text and respond with JSON. 
           Date should be in YYYY-MM-DD format (return none if not provided). 
           Current date is ${new Date().toISOString().split('T')[0]}. Use this if the date is not provided. 
-          Description should be in Sentence case. (Item name Company name and a very detailed description) 
+          Description should be in Sentence case. (Item name Company name and product or item details) 
           Type field should be either income or expense. 
           Use the following categories for classification (use general knowledge). 
           You should only chose from the categories provided below.
@@ -241,7 +241,7 @@ http.route({
               console.log("Receipt entry created with ID:", receipt);
               
               /* Send a reply to the user about the extracted data with a confirmation button */
-              const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nDescription: ${responseContent.description}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
+              const replyText = `📝 *Receipt Details*\n\n📅 Date: ${date}\n${responseContent.type === 'income' ? '💰' : '💸'} Type: ${responseContent.type.charAt(0).toUpperCase() + responseContent.type.slice(1)}\n📋 Description: ${responseContent.description}\n🏷️ Category: ${responseContent.category}\n💵 Amount: ${responseContent.amount.toFixed(2)}`;
               
               await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: "POST",
@@ -251,6 +251,7 @@ http.route({
                 body: JSON.stringify({
                   chat_id: chat.id,
                   text: replyText,
+                  parse_mode: "Markdown",
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -341,7 +342,7 @@ http.route({
             Extract Transaction Details from this receipt image and return as JSON.
             Date should be in YYYY-MM-DD format (return none if not provided).
             Current date is ${new Date().toISOString().split('T')[0]}. Use this if the date is not provided.
-            Description should be in Sentence case. (Item name Company name and a very detailed description)
+            Description should be in Sentence case. (Item name Company name and product or item details)
             Type field should be either income or expense.
             Use the following categories for classification (use general knowledge).
             You should only chose from the categories provided below.
@@ -440,7 +441,7 @@ http.route({
                   console.log("Receipt entry created with ID:", receipt);
                   
                   /* Format and send a response back to the user via Telegram with confirmation button */
-                  const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nDescription: ${responseContent.description}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
+                  const replyText = `📝 *Receipt Details*\n\n📅 Date: ${date}\n${responseContent.type === 'income' ? '💰' : '💸'} Type: ${responseContent.type.charAt(0).toUpperCase() + responseContent.type.slice(1)}\n📋 Description: ${responseContent.description}\n🏷️ Category: ${responseContent.category}\n💵 Amount: ${responseContent.amount.toFixed(2)}`;
                   
                   await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                     method: "POST",
@@ -450,6 +451,7 @@ http.route({
                     body: JSON.stringify({
                       chat_id: chat.id,
                       text: replyText,
+                      parse_mode: "Markdown",
                       reply_markup: {
                         inline_keyboard: [
                           [
@@ -518,13 +520,17 @@ http.route({
  * Handle callback queries from Telegram inline keyboard buttons
  */
 async function handleCallbackQuery(ctx: any, callbackQuery: any, botToken: string) {
-  const { id, from, data } = callbackQuery;
-  console.log("Received callback query:", { id, from, data });
+  const { id, from, data, message } = callbackQuery;
+  console.log("Received callback query:", { id, from, data, message });
   
   if (!data) {
     console.error("No data in callback query");
     return;
   }
+  
+  // Get the original message info
+  const chat_id = message.chat.id;
+  const message_id = message.message_id;
   
   // Acknowledge the callback query
   await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
@@ -569,15 +575,18 @@ async function handleCallbackQuery(ctx: any, callbackQuery: any, botToken: strin
         });
       }
       
-      // Notify the user
-      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      // Edit the original message to remove the buttons
+      const originalText = message.text;
+      await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          chat_id: from.id,
-          text: "✅ Receipt confirmed and approved! Transaction has been recorded.",
+          chat_id: chat_id,
+          message_id: message_id,
+          text: `${originalText}\n\n✅ *Success!* Your receipt has been confirmed and a transaction has been recorded in your account.`,
+          parse_mode: "Markdown",
         }),
       });
     } catch (error) {
@@ -591,7 +600,8 @@ async function handleCallbackQuery(ctx: any, callbackQuery: any, botToken: strin
         },
         body: JSON.stringify({
           chat_id: from.id,
-          text: "❌ Failed to confirm receipt. Please try again later.",
+          text: "❌ *Error* Failed to confirm receipt. Please try again later.",
+          parse_mode: "Markdown",
         }),
       });
     }
@@ -605,15 +615,18 @@ async function handleCallbackQuery(ctx: any, callbackQuery: any, botToken: strin
         receiptId,
       });
       
-      // Notify the user
-      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      // Edit the original message to remove the buttons
+      const originalText = message.text;
+      await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          chat_id: from.id,
-          text: "🗑️ Receipt discarded.",
+          chat_id: chat_id,
+          message_id: message_id,
+          text: `${originalText}\n\n🗑️ *Receipt Discarded* - This receipt has been deleted from your records.`,
+          parse_mode: "Markdown",
         }),
       });
     } catch (error) {
@@ -627,7 +640,8 @@ async function handleCallbackQuery(ctx: any, callbackQuery: any, botToken: strin
         },
         body: JSON.stringify({
           chat_id: from.id,
-          text: "❌ Failed to discard receipt. Please try again later.",
+          text: "❌ *Error* Failed to discard receipt. Please try again later.",
+          parse_mode: "Markdown",
         }),
       });
     }
