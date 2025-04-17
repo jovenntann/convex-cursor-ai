@@ -106,17 +106,6 @@ http.route({
         throw new Error("User not authenticated");
       }
 
-      /* Schema for the response from OpenAI */
-      const ReceiptData = z.object({
-        date: z.string().optional(),
-        type: z.string().optional(),
-        description: z.string().optional(),
-        category: z.string().optional(),
-        amount: z.number().optional(),
-        status: z.string().optional(),
-        metadata: z.string().optional(),
-      });
-      
       /* 
       ================================================
         If the message is text 
@@ -129,21 +118,46 @@ http.route({
           apiKey: process.env.OPENAI_API_KEY,
         });
         
+        // Define the schema for the expected response
+        const ReceiptData = z.object({
+          date: z.string().optional(),
+          type: z.string().optional(),
+          title: z.string().optional(), // Using title instead of description for text messages
+          category: z.string().optional(),
+          amount: z.number().optional(),
+          status: z.string().optional(),
+          metadata: z.string().optional(),
+        });
+        
+        const promptText = `
+          Extract Transaction Details from this text and respond with JSON. 
+          Date should be in YYYY-MM-DD format (return none if not provided). 
+          Current date is ${new Date().toISOString().split('T')[0]}. Use this if the date is not provided. 
+          Title should be in Sentence case. (Item name) 
+          Type field should be either income or expense. 
+          Use the following categories for classification (use general knowledge). 
+          You should only chose from the categories provided below.
+          
+          Return your answer as a JSON object with these fields:
+          {
+            "date": "YYYY-MM-DD",
+            "type": "income or expense",
+            "title": "Item title",
+            "category": "Category name from list",
+            "amount": 123.45
+          }
+          
+          Categories: ${JSON.stringify(categories)}
+          
+          Text to analyze: ${text}
+        `;
+        
         const response = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [
             {
               role: "user",
-              content: 
-                `Extract Transaction Details from this text. ` +
-                `Date should be in YYYY-MM-DD format (return none if not provided). ` +
-                `Current date is ${new Date().toISOString().split('T')[0]}. Use this if the date is not provided. ` +
-                `Description should be in Sentence case. (Item name) ` +
-                `Type field should be either income or expense. ` + 
-                `Use the following categories for classification (use general knowledge). ` +
-                `You should only chose from the categories provided below ` +
-                `${JSON.stringify(categories)}\n\n` +
-                `Text: ${text}`,
+              content: promptText,
             },
           ],
           response_format: { type: "json_object" },
@@ -203,7 +217,7 @@ http.route({
               userId: userId,
               date: date,
               type: responseContent.type,
-              description: responseContent.description,
+              description: responseContent.title || "No description provided", // Map title to description
               categoryId: categoryId,
               amount: responseContent.amount,
               status: "PENDING",
@@ -231,7 +245,7 @@ http.route({
           }
           
           /* Send a reply to the user about the extracted data */
-          const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nDescription: ${responseContent.description}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
+          const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nTitle: ${responseContent.title}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
           await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
             method: "POST",
             headers: {
@@ -283,11 +297,22 @@ http.route({
             apiKey: process.env.OPENAI_API_KEY,
           });
           
+          // Define the schema for the expected response
+          const ReceiptData = z.object({
+            date: z.string().optional(),
+            type: z.string().optional(),
+            title: z.string().optional(), // Using title for image analysis
+            category: z.string().optional(),
+            amount: z.number().optional(),
+            status: z.string().optional(),
+            metadata: z.string().optional(),
+          });
+          
           const prompt = `
-            Extract Transaction Details from this receipt image.
+            Extract Transaction Details from this receipt image and return as JSON.
             Date should be in YYYY-MM-DD format (return none if not provided).
             Current date is ${new Date().toISOString().split('T')[0]}. Use this if the date is not provided.
-            Description should be in Sentence case. (Item name)
+            Title should be in Sentence case. (Item name)
             Type field should be either income or expense.
             Use the following categories for classification (use general knowledge).
             You should only chose from the categories provided below.
@@ -295,7 +320,7 @@ http.route({
             {
               "date": "YYYY-MM-DD",
               "type": "income or expense",
-              "description": "Item description",
+              "title": "Item description",
               "category": "Category name from list",
               "amount": 123.45
             }
@@ -375,7 +400,7 @@ http.route({
                   userId: userId,
                   date: date,
                   type: responseContent.type,
-                  description: responseContent.description,
+                  description: responseContent.title || "No description provided", // Map title to description
                   categoryId: categoryId,
                   amount: responseContent.amount,
                   status: "PENDING",
@@ -404,7 +429,7 @@ http.route({
               }
 
               /* Format and send a response back to the user via Telegram */
-              const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nDescription: ${responseContent.description}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
+              const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nTitle: ${responseContent.title}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
               await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: "POST",
                 headers: {
