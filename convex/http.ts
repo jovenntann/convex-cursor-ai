@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internal, api } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 
 import { z } from "zod";
 import OpenAI from "openai";
@@ -13,10 +14,23 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     /* Telegram bot token */
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    
+    if (!botToken) {
+      console.error("Telegram bot token is not defined");
+      return new Response("Telegram bot token is not defined", { status: 500 });
+    }
+    
     /* Try to process the message */
     try {
       const messageData = await request.json();
       console.log("Message Data:", messageData);
+      
+      // Handle callback queries (button clicks)
+      if (messageData.callback_query) {
+        await handleCallbackQuery(ctx, messageData.callback_query, botToken);
+        return new Response(null, { status: 200 });
+      }
+      
       const { update_id, message } = messageData;
 
       if (!message) {
@@ -225,6 +239,34 @@ http.route({
             
             if (receipt) {
               console.log("Receipt entry created with ID:", receipt);
+              
+              /* Send a reply to the user about the extracted data with a confirmation button */
+              const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nTitle: ${responseContent.title}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
+              
+              await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  chat_id: chat.id,
+                  text: replyText,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {
+                          text: "✅ Confirm Receipt",
+                          callback_data: `confirm_receipt:${receipt}`,
+                        },
+                        {
+                          text: "❌ Discard",
+                          callback_data: `discard_receipt:${receipt}`,
+                        }
+                      ]
+                    ]
+                  }
+                }),
+              });
             }
           } catch (error) {
             console.error("Failed to insert receipt:", error);
@@ -243,19 +285,6 @@ http.route({
             
             return new Response(null, { status: 200 });
           }
-          
-          /* Send a reply to the user about the extracted data */
-          const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nTitle: ${responseContent.title}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
-          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              chat_id: chat.id,
-              text: replyText,
-            }),
-          });
         }
       /* 
       ================================================
@@ -409,6 +438,34 @@ http.route({
 
                 if (receipt) {
                   console.log("Receipt entry created with ID:", receipt);
+                  
+                  /* Format and send a response back to the user via Telegram with confirmation button */
+                  const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nTitle: ${responseContent.title}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
+                  
+                  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      chat_id: chat.id,
+                      text: replyText,
+                      reply_markup: {
+                        inline_keyboard: [
+                          [
+                            {
+                              text: "✅ Confirm Receipt",
+                              callback_data: `confirm_receipt:${receipt}`,
+                            },
+                            {
+                              text: "❌ Discard",
+                              callback_data: `discard_receipt:${receipt}`,
+                            }
+                          ]
+                        ]
+                      }
+                    }),
+                  });
                 }
               } catch (error) {
                 console.error("Failed to insert receipt:", error);
@@ -427,19 +484,6 @@ http.route({
                 
                 return new Response(null, { status: 200 });
               }
-
-              /* Format and send a response back to the user via Telegram */
-              const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nTitle: ${responseContent.title}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
-              await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  chat_id: chat.id,
-                  text: replyText,
-                }),
-              });
             }
           } catch (error) {
             console.error("OpenAI Vision API error:", error);
@@ -469,5 +513,107 @@ http.route({
     }
   }),
 });
+
+/**
+ * Handle callback queries from Telegram inline keyboard buttons
+ */
+async function handleCallbackQuery(ctx: any, callbackQuery: any, botToken: string) {
+  const { id, from, data } = callbackQuery;
+  console.log("Received callback query:", { id, from, data });
+  
+  if (!data) {
+    console.error("No data in callback query");
+    return;
+  }
+  
+  // Acknowledge the callback query
+  await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      callback_query_id: id,
+    }),
+  });
+  
+  // Extract the action and receipt ID from the callback data
+  const [action, receiptIdStr] = data.split(':');
+  
+  if (action === 'confirm_receipt') {
+    try {
+      // Convert string ID to a proper Convex ID
+      const receiptId = receiptIdStr as Id<"receipts">;
+      
+      // Update the receipt status to APPROVED
+      await ctx.runMutation(api.receipts.updateReceiptStatus, {
+        receiptId,
+        status: "APPROVED",
+      });
+      
+      // Notify the user
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: from.id,
+          text: "✅ Receipt confirmed and approved!",
+        }),
+      });
+    } catch (error) {
+      console.error("Error confirming receipt:", error);
+      
+      // Notify the user of the error
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: from.id,
+          text: "❌ Failed to confirm receipt. Please try again later.",
+        }),
+      });
+    }
+  } else if (action === 'discard_receipt') {
+    try {
+      // Convert string ID to a proper Convex ID
+      const receiptId = receiptIdStr as Id<"receipts">;
+      
+      // Delete the receipt
+      await ctx.runMutation(api.receipts.deleteReceipt, {
+        receiptId,
+      });
+      
+      // Notify the user
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: from.id,
+          text: "🗑️ Receipt discarded.",
+        }),
+      });
+    } catch (error) {
+      console.error("Error discarding receipt:", error);
+      
+      // Notify the user of the error
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: from.id,
+          text: "❌ Failed to discard receipt. Please try again later.",
+        }),
+      });
+    }
+  }
+}
 
 export default http; 

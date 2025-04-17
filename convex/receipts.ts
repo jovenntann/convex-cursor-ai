@@ -30,4 +30,44 @@ export const insertReceipt = internalMutation({
     
     return receiptId;
   },
+});
+
+/**
+ * Update the status of a receipt
+ */
+export const updateReceiptStatus = mutation({
+  args: {
+    receiptId: v.id("receipts"),
+    status: v.union(v.literal("PENDING"), v.literal("APPROVED")),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.receiptId, {
+      status: args.status,
+    });
+    return true;
+  },
+});
+
+/**
+ * Delete a receipt from the database
+ */
+export const deleteReceipt = mutation({
+  args: {
+    receiptId: v.id("receipts"),
+  },
+  handler: async (ctx, args) => {
+    const receipt = await ctx.db.get(args.receiptId);
+    if (!receipt) {
+      return false;
+    }
+    
+    // If there's an associated file, delete it from storage
+    if (receipt.receiptId) {
+      await ctx.storage.delete(receipt.receiptId);
+    }
+    
+    // Delete the receipt record
+    await ctx.db.delete(args.receiptId);
+    return true;
+  },
 }); 
