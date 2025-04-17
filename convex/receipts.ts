@@ -1,4 +1,4 @@
-import { mutation, internalMutation } from "./_generated/server";
+import { mutation, internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 
@@ -69,5 +69,17 @@ export const deleteReceipt = mutation({
     // Delete the receipt record
     await ctx.db.delete(args.receiptId);
     return true;
+  },
+});
+
+/**
+ * Get a receipt by its ID
+ */
+export const getReceipt = query({
+  args: {
+    receiptId: v.id("receipts"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.receiptId);
   },
 }); 

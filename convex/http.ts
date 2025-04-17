@@ -136,7 +136,7 @@ http.route({
         const ReceiptData = z.object({
           date: z.string().optional(),
           type: z.string().optional(),
-          title: z.string().optional(), // Using title instead of description for text messages
+          description: z.string().optional(),
           category: z.string().optional(),
           amount: z.number().optional(),
           status: z.string().optional(),
@@ -147,7 +147,7 @@ http.route({
           Extract Transaction Details from this text and respond with JSON. 
           Date should be in YYYY-MM-DD format (return none if not provided). 
           Current date is ${new Date().toISOString().split('T')[0]}. Use this if the date is not provided. 
-          Title should be in Sentence case. (Item name) 
+          Description should be in Sentence case. (Item name Company name and a very detailed description) 
           Type field should be either income or expense. 
           Use the following categories for classification (use general knowledge). 
           You should only chose from the categories provided below.
@@ -156,7 +156,7 @@ http.route({
           {
             "date": "YYYY-MM-DD",
             "type": "income or expense",
-            "title": "Item title",
+            "description": "Item description",
             "category": "Category name from list",
             "amount": 123.45
           }
@@ -231,7 +231,7 @@ http.route({
               userId: userId,
               date: date,
               type: responseContent.type,
-              description: responseContent.title || "No description provided", // Map title to description
+              description: responseContent.description || "No description provided",
               categoryId: categoryId,
               amount: responseContent.amount,
               status: "PENDING",
@@ -241,7 +241,7 @@ http.route({
               console.log("Receipt entry created with ID:", receipt);
               
               /* Send a reply to the user about the extracted data with a confirmation button */
-              const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nTitle: ${responseContent.title}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
+              const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nDescription: ${responseContent.description}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
               
               await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: "POST",
@@ -330,7 +330,7 @@ http.route({
           const ReceiptData = z.object({
             date: z.string().optional(),
             type: z.string().optional(),
-            title: z.string().optional(), // Using title for image analysis
+            description: z.string().optional(),
             category: z.string().optional(),
             amount: z.number().optional(),
             status: z.string().optional(),
@@ -341,7 +341,7 @@ http.route({
             Extract Transaction Details from this receipt image and return as JSON.
             Date should be in YYYY-MM-DD format (return none if not provided).
             Current date is ${new Date().toISOString().split('T')[0]}. Use this if the date is not provided.
-            Title should be in Sentence case. (Item name)
+            Description should be in Sentence case. (Item name Company name and a very detailed description)
             Type field should be either income or expense.
             Use the following categories for classification (use general knowledge).
             You should only chose from the categories provided below.
@@ -349,7 +349,7 @@ http.route({
             {
               "date": "YYYY-MM-DD",
               "type": "income or expense",
-              "title": "Item description",
+              "description": "Item description",
               "category": "Category name from list",
               "amount": 123.45
             }
@@ -429,7 +429,7 @@ http.route({
                   userId: userId,
                   date: date,
                   type: responseContent.type,
-                  description: responseContent.title || "No description provided", // Map title to description
+                  description: responseContent.description || "No description provided",
                   categoryId: categoryId,
                   amount: responseContent.amount,
                   status: "PENDING",
@@ -440,7 +440,7 @@ http.route({
                   console.log("Receipt entry created with ID:", receipt);
                   
                   /* Format and send a response back to the user via Telegram with confirmation button */
-                  const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nTitle: ${responseContent.title}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
+                  const replyText = `Extracted Data:\nDate: ${date}\nType: ${responseContent.type}\nDescription: ${responseContent.description}\nCategory: ${responseContent.category}\nAmount: ${responseContent.amount}`;
                   
                   await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                     method: "POST",
@@ -551,6 +551,24 @@ async function handleCallbackQuery(ctx: any, callbackQuery: any, botToken: strin
         status: "APPROVED",
       });
       
+      // Get the receipt details to create a transaction
+      const receipt = await ctx.runQuery(api.receipts.getReceipt, {
+        receiptId,
+      });
+      
+      if (receipt) {
+        // Insert a new transaction record
+        await ctx.runMutation(api.transactions.insertTransaction, {
+          userId: receipt.userId,
+          categoryId: receipt.categoryId,
+          amount: receipt.amount,
+          description: receipt.description,
+          date: new Date(receipt.date).getTime(), // Convert date string to timestamp
+          type: receipt.type,
+          receiptId: receipt.receiptId,
+        });
+      }
+      
       // Notify the user
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: "POST",
@@ -559,7 +577,7 @@ async function handleCallbackQuery(ctx: any, callbackQuery: any, botToken: strin
         },
         body: JSON.stringify({
           chat_id: from.id,
-          text: "✅ Receipt confirmed and approved!",
+          text: "✅ Receipt confirmed and approved! Transaction has been recorded.",
         }),
       });
     } catch (error) {

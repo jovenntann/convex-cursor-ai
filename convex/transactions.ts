@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { Id } from "./_generated/dataModel";
@@ -1037,4 +1037,29 @@ export const getTotalTransactionExpenses = query({
     // Sum up the amounts
     return transactions.reduce((total, transaction) => total + Math.abs(transaction.amount), 0);
   }
+});
+
+// Insert a transaction from a confirmed receipt
+export const insertTransaction = mutation({
+  args: {
+    userId: v.string(),
+    categoryId: v.id("categories"),
+    amount: v.number(),
+    description: v.string(),
+    date: v.number(), // Timestamp
+    type: v.union(v.literal("income"), v.literal("expense")),
+    receiptId: v.optional(v.id("_storage"))
+  },
+  returns: v.id("transactions"),
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("transactions", {
+      userId: args.userId,
+      categoryId: args.categoryId,
+      amount: args.amount,
+      description: args.description,
+      date: args.date,
+      type: args.type,
+      receiptId: args.receiptId
+    });
+  },
 }); 
