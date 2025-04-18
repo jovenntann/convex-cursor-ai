@@ -161,7 +161,8 @@ http.route({
             "amount": 123.45
           }
           
-          Categories: ${JSON.stringify(categories)}
+          Categories:
+          ${categories.map((c: any) => `- ${c.name} (${c.type}, ${c.nature}): ${c.description}`).join('\n')}
           
           Text to analyze: ${text}
         `;
@@ -355,7 +356,8 @@ http.route({
               "amount": 123.45
             }
             
-            Categories: ${JSON.stringify(categories)}
+            Categories:
+            ${categories.map((c: any) => `- ${c.name} (${c.type}, ${c.nature}): ${c.description}`).join('\n')}
           `;
           
           try {
