@@ -115,4 +115,27 @@ export const getUserByTelegramId = internalMutation({
     
     return users.length > 0 ? users[0] : null;
   },
+});
+
+/**
+ * Check if the current user has a telegramUserId
+ */
+export const hasTelegramId = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return false;
+    }
+    
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier)
+      )
+      .unique();
+    
+    return user !== null && user.telegramUserId !== undefined && user.telegramUserId !== null;
+  },
 }); 

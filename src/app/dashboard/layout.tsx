@@ -11,6 +11,7 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
+import { TelegramLinkModal } from "@/components/telegram-link-modal"
 
 export default function DashboardLayout({
   children,
@@ -79,6 +80,7 @@ export default function DashboardLayout({
           {children}
         </div>
       </SidebarInset>
+      <TelegramLinkModal />
     </SidebarProvider>
   )
 } 
