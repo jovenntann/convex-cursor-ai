@@ -22,7 +22,7 @@ export function TelegramLinkModal() {
 
   // Generate the Telegram deep link with user ID
   const telegramLink = user 
-    ? `https://t.me/BudgetTrackrBot?start=user_${user.id}`
+    ? `https://t.me/BudgetTrackrBot?start=${user.id}`
     : "";
 
   useEffect(() => {
