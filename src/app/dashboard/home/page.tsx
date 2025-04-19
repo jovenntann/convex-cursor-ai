@@ -67,7 +67,14 @@ export default function HomePage() {
     }
   };
   
-  // Get recent transactions with their categories
+  // Get all transactions for the chart (no limit)
+  const allTransactions = useQuery(api.transactions.getWithCategory, { 
+    unlimited: true,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate
+  });
+  
+  // Get recent transactions with limit for the table
   const transactions = useQuery(api.transactions.getWithCategory, { 
     limit: 10,
     startDate: dateRange.startDate,
@@ -138,6 +145,7 @@ export default function HomePage() {
   
   // Check loading state
   const isLoading = 
+    allTransactions === undefined ||
     transactions === undefined || 
     recentIncomeTransactions === undefined ||
     totalTransactions === undefined || 
@@ -218,7 +226,7 @@ export default function HomePage() {
   }
 
   // Show empty state if no transactions
-  if (transactions && transactions.length === 0) {
+  if (allTransactions && allTransactions.length === 0) {
     return (
       <div className="@container/main flex flex-1 flex-col items-center justify-center gap-4">
         <h2 className="text-xl font-semibold">No transactions found</h2>
@@ -286,7 +294,7 @@ export default function HomePage() {
         
         <div className="px-4 lg:px-6">
           <div className="rounded-lg overflow-hidden border bg-white/80 p-4 shadow-sm">
-            <ChartAreaInteractive transactions={transactions || []} />
+            <ChartAreaInteractive transactions={allTransactions || []} />
           </div>
         </div>
         

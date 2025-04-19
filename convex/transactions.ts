@@ -38,6 +38,7 @@ export const create = mutation({
 export const getWithCategory = query({
   args: {
     limit: v.optional(v.number()),
+    unlimited: v.optional(v.boolean()),
     type: v.optional(v.union(v.literal("income"), v.literal("expense"))),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
@@ -69,7 +70,8 @@ export const getWithCategory = query({
     }
     const userId = identity.subject;
     
-    const limit = args.limit ?? 10;
+    // Skip limit if unlimited flag is set to true
+    const limit = args.unlimited ? undefined : (args.limit ?? 10);
     
     // Start building our query
     let query;
@@ -108,8 +110,10 @@ export const getWithCategory = query({
     const direction = args.sortDirection || "desc";
     query = query.order(direction);
     
-    // Take the limit
-    const transactions = await query.take(limit);
+    // Take the limit or collect all if unlimited
+    const transactions = limit !== undefined 
+      ? await query.take(limit) 
+      : await query.collect();
     
     // Fetch category details for each transaction
     return await Promise.all(

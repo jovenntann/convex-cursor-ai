@@ -66,7 +66,7 @@ export function SectionCards({
   return (
     <div className="grid grid-cols-1 gap-3 px-4 lg:px-6 md:grid-cols-2 lg:grid-cols-4">
       {/* Income Budget Card */}
-      <Card className="@container/card rounded-xl bg-gray-50/80 shadow-sm border-0">
+      <Card className="@container/card rounded-xl bg-gradient-to-br from-gray-50 to-white shadow-sm border-0">
         <CardHeader className="pt-4 pb-0 px-4">
           <CardTitle className="text-sm font-medium text-gray-700">Income Budget</CardTitle>
         </CardHeader>
@@ -99,7 +99,7 @@ export function SectionCards({
       </Card>
 
       {/* Fixed Expenses Card */}
-      <Card className="@container/card rounded-xl bg-gray-50/80 shadow-sm border-0">
+      <Card className="@container/card rounded-xl bg-gradient-to-br from-gray-50 to-white shadow-sm border-0">
         <CardHeader className="pt-4 pb-0 px-4">
           <CardTitle className="text-sm font-medium text-gray-700">Fixed Expenses</CardTitle>
         </CardHeader>
@@ -132,7 +132,7 @@ export function SectionCards({
       </Card>
 
       {/* Dynamic Expenses Card */}
-      <Card className="@container/card rounded-xl bg-gray-50/80 shadow-sm border-0">
+      <Card className="@container/card rounded-xl bg-gradient-to-br from-gray-50 to-white shadow-sm border-0">
         <CardHeader className="pt-4 pb-0 px-4">
           <CardTitle className="text-sm font-medium text-gray-700">Dynamic Expenses</CardTitle>
         </CardHeader>
@@ -165,7 +165,7 @@ export function SectionCards({
       </Card>
       
       {/* Net Balance Card */}
-      <Card className="@container/card rounded-xl bg-gray-50/80 shadow-sm border-0">
+      <Card className="@container/card rounded-xl bg-gradient-to-br from-gray-50 to-white shadow-sm border-0">
         <CardHeader className="pt-4 pb-0 px-4">
           <CardTitle className="text-sm font-medium text-gray-700">Net Balance</CardTitle>
         </CardHeader>
