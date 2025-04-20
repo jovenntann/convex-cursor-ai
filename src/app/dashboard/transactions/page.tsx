@@ -5,8 +5,14 @@ import { api } from "@convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { Id } from "@convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { IconPlus, IconTable, IconLayoutGrid } from "@tabler/icons-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { IconPlus, IconTable, IconLayoutGrid, IconAdjustmentsHorizontal } from "@tabler/icons-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Import components
 import { TransactionTable, DeleteConfirmDialog, FilterBar, TransactionForm, TransactionTileView } from "./components";
@@ -32,6 +38,9 @@ export default function TransactionsPage() {
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<any>(null);
   const [viewMode, setViewMode] = useState<"table" | "tile">("table");
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  
+  const isMobile = useIsMobile();
   
   // Get mutations
   const deleteTransaction = useMutation(api.transactions.remove);
@@ -96,6 +105,9 @@ export default function TransactionsPage() {
       setSortByDescription(false);
     }
     setCursor(null); // Reset to first page
+    if (isMobile) {
+      setShowFilterMenu(false);
+    }
   }
 
   function toggleSortByAmount() {
@@ -109,6 +121,9 @@ export default function TransactionsPage() {
       setSortByDescription(false);
     }
     setCursor(null); // Reset to first page
+    if (isMobile) {
+      setShowFilterMenu(false);
+    }
   }
   
   function toggleSortByDescription() {
@@ -122,6 +137,9 @@ export default function TransactionsPage() {
       setSortByAmount(false);
     }
     setCursor(null); // Reset to first page
+    if (isMobile) {
+      setShowFilterMenu(false);
+    }
   }
 
   function handleTypeFilterChange(value: string) {
@@ -131,6 +149,9 @@ export default function TransactionsPage() {
       setTypeFilter(value as "income" | "expense");
     }
     setCursor(null); // Reset to first page when changing filter
+    if (isMobile) {
+      setShowFilterMenu(false);
+    }
   }
   
   function handleCategoryFilterChange(value: string) {
@@ -140,12 +161,18 @@ export default function TransactionsPage() {
       setCategoryFilter(value as Id<"categories">);
     }
     setCursor(null); // Reset to first page when changing filter
+    if (isMobile) {
+      setShowFilterMenu(false);
+    }
   }
   
   function handleDateRangeChange(start: Date | null, end: Date | null) {
     setStartDate(start);
     setEndDate(end);
     setCursor(null); // Reset to first page when changing date range
+    if (isMobile) {
+      setShowFilterMenu(false);
+    }
   }
   
   // Handle delete confirmation for a transaction
@@ -234,49 +261,89 @@ export default function TransactionsPage() {
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <div className="flex items-center justify-between px-4 lg:px-6">
-          <h1 className="text-2xl font-bold">Transactions</h1>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={toggleViewMode}
-              className="h-9 w-9"
-              title={viewMode === "table" ? "Switch to Tile View" : "Switch to Table View"}
-            >
-              {viewMode === "table" ? (
-                <IconLayoutGrid className="h-4 w-4" />
-              ) : (
-                <IconTable className="h-4 w-4" />
-              )}
-            </Button>
-            <Button className="flex items-center gap-1" onClick={() => setShowTransactionForm(true)}>
-              <IconPlus className="h-4 w-4" />
-              New Transaction
-            </Button>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 lg:px-6">
+          <h1 className="text-xl md:text-2xl font-bold">Transactions</h1>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+            {isMobile && (
+              <DropdownMenu open={showFilterMenu} onOpenChange={setShowFilterMenu}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-1">
+                    <IconAdjustmentsHorizontal className="h-4 w-4" />
+                    <span>Filters</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-72 p-4">
+                  <FilterBar 
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    typeFilter={typeFilter}
+                    categoryFilter={categoryFilter}
+                    startDate={startDate}
+                    endDate={endDate}
+                    onTypeFilterChange={handleTypeFilterChange}
+                    onCategoryFilterChange={handleCategoryFilterChange}
+                    onDateRangeChange={handleDateRangeChange}
+                    sortByDate={sortByDate}
+                    sortByAmount={sortByAmount}
+                    sortByDescription={sortByDescription}
+                    sortDirection={sortDirection}
+                    toggleSortByDate={toggleSortByDate}
+                    toggleSortByAmount={toggleSortByAmount}
+                    toggleSortByDescription={toggleSortByDescription}
+                    categories={categories}
+                    isMobileMenu={true}
+                  />
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={toggleViewMode}
+                className="h-9 w-9"
+                title={viewMode === "table" ? "Switch to Tile View" : "Switch to Table View"}
+              >
+                {viewMode === "table" ? (
+                  <IconLayoutGrid className="h-4 w-4" />
+                ) : (
+                  <IconTable className="h-4 w-4" />
+                )}
+              </Button>
+              <Button 
+                className="flex items-center gap-1" 
+                onClick={() => setShowTransactionForm(true)}
+              >
+                <IconPlus className="h-4 w-4" />
+                <span className={isMobile ? "" : ""}>New</span>
+                {!isMobile && <span>Transaction</span>}
+              </Button>
+            </div>
           </div>
         </div>
         
         <div className="px-4 lg:px-6">
-          <FilterBar 
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            typeFilter={typeFilter}
-            categoryFilter={categoryFilter}
-            startDate={startDate}
-            endDate={endDate}
-            onTypeFilterChange={handleTypeFilterChange}
-            onCategoryFilterChange={handleCategoryFilterChange}
-            onDateRangeChange={handleDateRangeChange}
-            sortByDate={sortByDate}
-            sortByAmount={sortByAmount}
-            sortByDescription={sortByDescription}
-            sortDirection={sortDirection}
-            toggleSortByDate={toggleSortByDate}
-            toggleSortByAmount={toggleSortByAmount}
-            toggleSortByDescription={toggleSortByDescription}
-            categories={categories}
-          />
+          {!isMobile && (
+            <FilterBar 
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              typeFilter={typeFilter}
+              categoryFilter={categoryFilter}
+              startDate={startDate}
+              endDate={endDate}
+              onTypeFilterChange={handleTypeFilterChange}
+              onCategoryFilterChange={handleCategoryFilterChange}
+              onDateRangeChange={handleDateRangeChange}
+              sortByDate={sortByDate}
+              sortByAmount={sortByAmount}
+              sortByDescription={sortByDescription}
+              sortDirection={sortDirection}
+              toggleSortByDate={toggleSortByDate}
+              toggleSortByAmount={toggleSortByAmount}
+              toggleSortByDescription={toggleSortByDescription}
+              categories={categories}
+            />
+          )}
           
           {viewMode === "table" ? (
             <TransactionTable 
@@ -299,6 +366,7 @@ export default function TransactionsPage() {
               onNextPage={handleNextPage}
               onPreviousPage={handlePreviousPage}
               handleBulkDelete={handleBulkDelete}
+              isMobile={isMobile}
             />
           ) : (
             <div className="py-3">

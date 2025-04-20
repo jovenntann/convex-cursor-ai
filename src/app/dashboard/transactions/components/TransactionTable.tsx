@@ -66,9 +66,10 @@ interface TransactionTableProps {
   onNextPage: () => void;
   onPreviousPage: () => void;
   handleBulkDelete: () => void;
+  isMobile?: boolean;
 }
 
-export function TransactionTable({
+export default function TransactionTable({
   page,
   isDone,
   continueCursor,
@@ -88,35 +89,28 @@ export function TransactionTable({
   onNextPage,
   onPreviousPage,
   handleBulkDelete,
+  isMobile
 }: TransactionTableProps) {
+
   function toggleRowSelection(id: string) {
-    setSelectedRows((prev: string[]) => 
+    setSelectedRows(prev => 
       prev.includes(id) 
-        ? prev.filter((rowId: string) => rowId !== id) 
+        ? prev.filter(rowId => rowId !== id) 
         : [...prev, id]
     );
   }
 
   function toggleAllRows() {
-    if (page?.length && selectedRows.length === page.length) {
+    if (page && page.length > 0 && selectedRows.length === page.length) {
       setSelectedRows([]);
-    } else if (page?.length) {
-      setSelectedRows(page.map(tx => tx._id));
+    } else if (page && page.length > 0) {
+      setSelectedRows(page.map(transaction => transaction._id));
     }
   }
 
-  // Format date for display
-  function formatDate(timestamp: number) {
-    return format(new Date(timestamp), "MMM d, yyyy");
-  }
-
-  // Format amount with currency symbol
-  function formatAmount(amount: number, type: "income" | "expense") {
-    return type === "income" 
-      ? `+$${amount.toFixed(2)}` 
-      : `-$${amount.toFixed(2)}`;
-  }
-
+  // List of columns to hide on mobile
+  const mobileHiddenCols = ["category", "date"];
+  
   return (
     <div className="rounded-lg border shadow-sm">
       {/* Bulk Actions Bar */}
@@ -127,153 +121,150 @@ export function TransactionTable({
               {selectedRows.length} {selectedRows.length === 1 ? 'item' : 'items'} selected
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              className="flex items-center gap-1"
-              onClick={handleBulkDelete}
-            >
-              <IconTrash className="h-4 w-4" />
-              Delete Selected
-            </Button>
-          </div>
+          <Button 
+            variant="destructive" 
+            size="sm" 
+            className="flex items-center gap-1"
+            onClick={handleBulkDelete}
+          >
+            <IconTrash className="h-4 w-4" />
+            <span>Delete</span>
+          </Button>
         </div>
       )}
       
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead style={{ width: 50 }}></TableHead>
-            <TableHead style={{ width: 50 }}>
-              <Checkbox
-                checked={page?.length > 0 && selectedRows.length === page.length}
-                onCheckedChange={toggleAllRows}
-                aria-label="Select all"
-              />
-            </TableHead>
-            <TableHead>
-              <Button 
-                variant="ghost" 
-                className="flex items-center gap-1 p-0 h-auto font-medium hover:bg-transparent"
-                onClick={toggleSortByDate}
-              >
-                <span>Date</span>
-                {sortByDate && <SortIndicator active={true} direction={sortDirection} />}
-              </Button>
-            </TableHead>
-            <TableHead>
-              <Button 
-                variant="ghost" 
-                className="flex items-center gap-1 p-0 h-auto font-medium hover:bg-transparent"
-                onClick={toggleSortByDescription}
-              >
-                <span>Description</span>
-                {sortByDescription && <SortIndicator active={true} direction={sortDirection} />}
-              </Button>
-            </TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>
-              <Button 
-                variant="ghost" 
-                className="flex items-center gap-1 p-0 h-auto font-medium hover:bg-transparent"
-                onClick={toggleSortByAmount}
-              >
-                <span>Amount</span>
-                {sortByAmount && <SortIndicator active={true} direction={sortDirection} />}
-              </Button>
-            </TableHead>
-            <TableHead style={{ width: 50 }}></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody className="min-h-[400px]">
-          {page?.length > 0 ? (
-            page.map((transaction) => (
-              <TableRow key={transaction._id} className="hover:bg-muted/50">
-                <TableCell className="p-0 pl-4">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                    <IconGripVertical className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-                <TableCell className="p-0">
-                  <Checkbox
-                    checked={selectedRows.includes(transaction._id)}
-                    onCheckedChange={() => toggleRowSelection(transaction._id)}
-                    aria-label={`Select ${transaction.description}`}
-                  />
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <IconCalendar className="h-4 w-4 text-muted-foreground" />
-                    <span>{formatDate(transaction.date)}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="max-w-[300px] truncate font-medium">
-                  {transaction.description}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl" aria-hidden="true">
-                      {transaction.category.icon || '📁'}
+      <div className="overflow-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead style={{ width: 40 }}>
+                <Checkbox
+                  checked={page && page.length > 0 && selectedRows.length === page.length}
+                  onCheckedChange={toggleAllRows}
+                  aria-label="Select all"
+                />
+              </TableHead>
+              <TableHead className={isMobile ? "hidden" : ""}>
+                <Button 
+                  variant="ghost" 
+                  className="flex items-center gap-1 p-0 h-auto font-medium hover:bg-transparent"
+                  onClick={toggleSortByDate}
+                >
+                  <span>Date</span>
+                  <SortIndicator active={sortByDate} direction={sortDirection} />
+                </Button>
+              </TableHead>
+              <TableHead className={isMobile ? "hidden" : ""}>Category</TableHead>
+              <TableHead>
+                <Button 
+                  variant="ghost" 
+                  className="flex items-center gap-1 p-0 h-auto font-medium hover:bg-transparent"
+                  onClick={toggleSortByDescription}
+                >
+                  <span>Description</span>
+                  <SortIndicator active={sortByDescription} direction={sortDirection} />
+                </Button>
+              </TableHead>
+              <TableHead className="text-right">
+                <Button 
+                  variant="ghost" 
+                  className="flex items-center gap-1 p-0 h-auto font-medium hover:bg-transparent ml-auto"
+                  onClick={toggleSortByAmount}
+                >
+                  <span>Amount</span>
+                  <SortIndicator active={sortByAmount} direction={sortDirection} />
+                </Button>
+              </TableHead>
+              <TableHead style={{ width: 40 }}></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {page && page.length > 0 ? (
+              page.map((transaction) => (
+                <TableRow key={transaction._id} className="hover:bg-muted/50">
+                  <TableCell className="p-0 pl-4">
+                    <Checkbox
+                      checked={selectedRows.includes(transaction._id)}
+                      onCheckedChange={() => toggleRowSelection(transaction._id)}
+                      aria-label={`Select ${transaction.description}`}
+                    />
+                  </TableCell>
+                  <TableCell className={isMobile ? "hidden" : ""}>
+                    {format(new Date(transaction.date), 'MMM d, yyyy')}
+                  </TableCell>
+                  <TableCell className={isMobile ? "hidden" : ""}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg" aria-hidden="true">
+                        {transaction.category.icon || '📁'}
+                      </span>
+                      <span>{transaction.category.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{transaction.description}</div>
+                      {isMobile && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                          <span>{transaction.category.icon || '📁'}</span>
+                          <span>{transaction.category.name}</span>
+                          <span>•</span>
+                          <span>{format(new Date(transaction.date), 'MMM d, yyyy')}</span>
+                          <Badge 
+                            variant="outline" 
+                            className={`ml-1 text-xs ${
+                              transaction.type === "income" 
+                                ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300" 
+                                : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                            }`}
+                          >
+                            {transaction.type}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    <span className={transaction.type === "income" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                      {transaction.type === "income" ? "+" : "-"}${Math.abs(transaction.amount).toFixed(2)}
                     </span>
-                    <span>{transaction.category.name}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs ${transaction.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
-                  >
-                    {transaction.type}
-                  </Badge>
-                </TableCell>
-                <TableCell className={`font-medium ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}>
-                  {formatAmount(transaction.amount, transaction.type)}
-                </TableCell>
-                <TableCell className="p-0">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <IconDotsVertical className="h-4 w-4" />
-                        <span className="sr-only">Open menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(transaction)}>
-                        <IconPencil className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className="text-destructive" 
-                        onClick={() => handleDelete(transaction._id, transaction.description)}
-                      >
-                        <IconTrash className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  </TableCell>
+                  <TableCell className="p-0">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <IconDotsVertical className="h-4 w-4" />
+                          <span className="sr-only">Open menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(transaction)}>
+                          <IconPencil className="h-4 w-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-destructive" 
+                          onClick={() => handleDelete(transaction._id, transaction.description)}
+                        >
+                          <IconTrash className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-6 text-muted-foreground h-[400px] align-middle">
+                  {page === undefined ? 'Loading...' : 'No transactions found'}
                 </TableCell>
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={8} className="text-center py-6 text-muted-foreground h-[400px] align-middle">
-                No transactions found
-              </TableCell>
-            </TableRow>
-          )}
-          {page === undefined && (
-            <TableRow>
-              <TableCell colSpan={8} className="text-center py-6 text-muted-foreground h-[400px] align-middle">
-                Loading...
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+            )}
+          </TableBody>
+        </Table>
+      </div>
       
-      <div className="flex items-center justify-between py-4 px-4 border-t">
+      <div className="flex flex-col md:flex-row md:items-center justify-between py-4 px-4 border-t gap-3 md:gap-2">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Items per page</span>
           <Select
@@ -291,24 +282,26 @@ export function TransactionTable({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-3">
           <Button
             variant="outline"
-            size="sm"
+            size={isMobile ? "default" : "sm"}
             onClick={onPreviousPage}
-            disabled={continueCursor === null}
+            disabled={!page || page.length === 0}
+            className="min-w-[100px] md:min-w-0 h-10 md:h-8 flex-1 md:flex-initial"
           >
-            <IconChevronLeft className="h-4 w-4 mr-1" />
-            Previous
+            <IconChevronLeft className="h-4 w-4 mr-2" />
+            {isMobile ? "Prev" : "Previous"}
           </Button>
           <Button
             variant="outline"
-            size="sm"
+            size={isMobile ? "default" : "sm"}
             onClick={onNextPage}
-            disabled={isDone || !continueCursor || page?.length === 0}
+            disabled={isDone || !continueCursor || !page || page.length === 0}
+            className="min-w-[100px] md:min-w-0 h-10 md:h-8 flex-1 md:flex-initial"
           >
-            Next
-            <IconChevronRight className="h-4 w-4 ml-1" />
+            {isMobile ? "Next" : "Next"}
+            <IconChevronRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
       </div>

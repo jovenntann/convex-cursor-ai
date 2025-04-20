@@ -21,6 +21,20 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 
+// Define Category interface
+interface Category {
+  _id: Id<"categories">;
+  name: string;
+  icon?: string;
+  type: "income" | "expense";
+  description: string;
+  nature: "fixed" | "dynamic";
+  isActive: boolean;
+  budget?: number;
+  paymentDueDay?: number;
+  color?: string;
+}
+
 // Sort indicator component
 const SortIndicator = ({ active = false, direction = "asc" }: { active?: boolean, direction?: "asc" | "desc" }) => {
   if (!active) return <IconArrowsSort className="h-4 w-4 text-muted-foreground" />;
@@ -29,35 +43,25 @@ const SortIndicator = ({ active = false, direction = "asc" }: { active?: boolean
     : <IconArrowDown className="h-5 w-5 text-blue-600 ml-1 font-bold" />;
 };
 
-interface FilterBarProps {
+export interface FilterBarProps {
   searchQuery: string;
-  setSearchQuery: (query: string) => void;
+  setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
   typeFilter: "income" | "expense" | null;
   categoryFilter: Id<"categories"> | null;
   startDate: Date | null;
   endDate: Date | null;
-  onTypeFilterChange: (value: string) => void;
-  onCategoryFilterChange: (value: string) => void;
-  onDateRangeChange?: (start: Date | null, end: Date | null) => void;
   sortByDate: boolean;
   sortByAmount: boolean;
   sortByDescription: boolean;
   sortDirection: "asc" | "desc";
+  categories: Category[];
+  onTypeFilterChange: (value: string) => void;
+  onCategoryFilterChange: (value: string) => void;
+  onDateRangeChange: (start: Date | null, end: Date | null) => void;
   toggleSortByDate: () => void;
   toggleSortByAmount: () => void;
   toggleSortByDescription: () => void;
-  categories: Array<{
-    _id: Id<"categories">;
-    name: string;
-    icon?: string;
-    type: "income" | "expense";
-    description: string;
-    nature: "fixed" | "dynamic";
-    isActive: boolean;
-    budget?: number;
-    paymentDueDay?: number;
-    color?: string;
-  }>;
+  isMobileMenu?: boolean;
 }
 
 export function FilterBar({
