@@ -163,7 +163,9 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     header: "Type",
     cell: ({ row }) => (
       <div className="w-28">
-        <Badge variant="outline" className={`text-xs ${row.original.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+        <Badge variant="outline" className={`text-xs ${row.original.type === "income" 
+          ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300" 
+          : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"}`}>
           {row.original.type}
         </Badge>
       </div>
@@ -173,7 +175,9 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "amount",
     header: "Amount",
     cell: ({ row }) => (
-      <div className={`font-medium ${row.original.type === "income" ? "text-green-600" : "text-red-600"}`}>
+      <div className={`font-medium ${row.original.type === "income" 
+        ? "text-green-600 dark:text-green-400" 
+        : "text-red-600 dark:text-red-400"}`}>
         {row.original.amount}
       </div>
     ),
@@ -221,6 +225,7 @@ export function DataTable({
   }
 }) {
   const [data, setData] = React.useState(() => initialData)
+  const [activeTab, setActiveTab] = React.useState("outline")
   
   // Update data state when props change
   React.useEffect(() => {
@@ -242,6 +247,14 @@ export function DataTable({
       return column;
     });
   }, [columnHeaders]);
+
+  // Handle tab change from either tabs or mobile dropdown
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (onTabChange) {
+      onTabChange(value);
+    }
+  };
   
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] =
@@ -305,18 +318,19 @@ export function DataTable({
   return (
     <Tabs
       defaultValue="outline"
+      value={activeTab}
       className="w-full flex-col justify-start gap-6"
-      onValueChange={(value) => {
-        if (onTabChange) {
-          onTabChange(value);
-        }
-      }}
+      onValueChange={handleTabChange}
     >
       <div className="flex items-center justify-between px-4 lg:px-6">
         <Label htmlFor="view-selector" className="sr-only">
           View
         </Label>
-        <Select defaultValue="outline">
+        <Select 
+          defaultValue="outline" 
+          value={activeTab}
+          onValueChange={handleTabChange}
+        >
           <SelectTrigger
             className="flex w-fit @4xl/main:hidden"
             size="sm"
@@ -589,13 +603,13 @@ export function DataTable({
         </div>
       </TabsContent>
       <TabsContent value="key-personnel" className="flex flex-col px-4 lg:px-6">
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
+        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed border-border"></div>
       </TabsContent>
       <TabsContent
         value="focus-documents"
         className="flex flex-col px-4 lg:px-6"
       >
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
+        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed border-border"></div>
       </TabsContent>
     </Tabs>
   )
@@ -683,9 +697,9 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
               </ChartContainer>
               <Separator />
               <div className="grid gap-2">
-                <div className="flex gap-2 leading-none font-medium">
+                <div className="flex gap-2 leading-none font-medium text-foreground">
                   Trending up by 5.2% this month{" "}
-                  <IconTrendingUp className="size-4" />
+                  <IconTrendingUp className="size-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div className="text-muted-foreground">
                   Showing total visitors for the last 6 months. This is just

@@ -258,7 +258,7 @@ export default function HomePage() {
               <input
                 id="start-date"
                 type="date"
-                className="px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-input rounded-md text-sm bg-background text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={new Date(dateRange.startDate).toISOString().split('T')[0]}
                 onChange={(e) => handleDateChange(e, 'start')}
               />
@@ -270,7 +270,7 @@ export default function HomePage() {
               <input
                 id="end-date"
                 type="date"
-                className="px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-input rounded-md text-sm bg-background text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={new Date(dateRange.endDate).toISOString().split('T')[0]}
                 onChange={(e) => handleDateChange(e, 'end')}
               />
@@ -293,7 +293,7 @@ export default function HomePage() {
         />
         
         <div className="px-4 lg:px-6">
-          <div className="rounded-lg overflow-hidden border bg-white/80 p-4 shadow-sm">
+          <div className="rounded-lg overflow-hidden border bg-card p-4 shadow-sm">
             <ChartAreaInteractive transactions={allTransactions || []} />
           </div>
         </div>
