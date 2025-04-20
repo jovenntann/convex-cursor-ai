@@ -133,8 +133,8 @@ export default function TransactionTable({
         </div>
       )}
       
-      <div className="overflow-auto">
-        <Table>
+      <div className="overflow-x-auto">
+        <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
               <TableHead style={{ width: 40 }}>
@@ -144,7 +144,7 @@ export default function TransactionTable({
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead className={isMobile ? "hidden" : ""}>
+              <TableHead className={isMobile ? "hidden" : ""} style={{ width: isMobile ? 0 : "15%" }}>
                 <Button 
                   variant="ghost" 
                   className="flex items-center gap-1 p-0 h-auto font-medium hover:bg-transparent"
@@ -154,8 +154,8 @@ export default function TransactionTable({
                   <SortIndicator active={sortByDate} direction={sortDirection} />
                 </Button>
               </TableHead>
-              <TableHead className={isMobile ? "hidden" : ""}>Category</TableHead>
-              <TableHead>
+              <TableHead className={isMobile ? "hidden" : ""} style={{ width: isMobile ? 0 : "20%" }}>Category</TableHead>
+              <TableHead style={{ width: isMobile ? "60%" : "40%" }}>
                 <Button 
                   variant="ghost" 
                   className="flex items-center gap-1 p-0 h-auto font-medium hover:bg-transparent"
@@ -165,7 +165,7 @@ export default function TransactionTable({
                   <SortIndicator active={sortByDescription} direction={sortDirection} />
                 </Button>
               </TableHead>
-              <TableHead className="text-right">
+              <TableHead className="text-right" style={{ width: isMobile ? "30%" : "15%" }}>
                 <Button 
                   variant="ghost" 
                   className="flex items-center gap-1 p-0 h-auto font-medium hover:bg-transparent ml-auto"
@@ -202,11 +202,13 @@ export default function TransactionTable({
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{transaction.description}</div>
+                      <div className="font-medium max-w-[250px] md:max-w-full truncate md:overflow-visible md:whitespace-normal">
+                        {transaction.description}
+                      </div>
                       {isMobile && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                        <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground mt-1">
                           <span>{transaction.category.icon || '📁'}</span>
-                          <span>{transaction.category.name}</span>
+                          <span className="max-w-[80px] truncate">{transaction.category.name}</span>
                           <span>•</span>
                           <span>{format(new Date(transaction.date), 'MMM d, yyyy')}</span>
                           <Badge 
