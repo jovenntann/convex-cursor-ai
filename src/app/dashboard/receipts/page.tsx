@@ -5,18 +5,20 @@ import { api } from "@convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { Id } from "@convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { IconPlus, IconTable, IconLayoutGrid } from "@tabler/icons-react";
+import { IconPlus, IconTable, IconLayoutGrid, IconFilter, IconSun, IconMoon } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 
 // Import components
-import { TransactionTable, DeleteConfirmDialog, FilterBar, TransactionForm, TransactionTileView } from "../transactions/components";
+import { TransactionTable, DeleteConfirmDialog, FilterBar, TransactionForm } from "../transactions/components";
+import { ReceiptGallery } from "./components/ReceiptGallery";
 
 export default function ReceiptsPage() {
   const [cursor, setCursor] = useState<string | null>(null);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(12);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sortByAmount, setSortByAmount] = useState(false);
-  const [sortByDate, setSortByDate] = useState(false);
+  const [sortByDate, setSortByDate] = useState(true);
   const [sortByDescription, setSortByDescription] = useState(false);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [typeFilter, setTypeFilter] = useState<"income" | "expense" | null>(null);
@@ -31,7 +33,11 @@ export default function ReceiptsPage() {
   const [bulkDelete, setBulkDelete] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<"table" | "tile">("tile");
+  const [viewMode, setViewMode] = useState<"table" | "gallery">("gallery");
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Theme toggle
+  const { theme, setTheme } = useTheme();
   
   // Get mutations
   const deleteTransaction = useMutation(api.transactions.remove);
@@ -228,21 +234,49 @@ export default function ReceiptsPage() {
   
   // Function to toggle view mode
   function toggleViewMode() {
-    setViewMode(viewMode === "table" ? "tile" : "table");
+    setViewMode(viewMode === "table" ? "gallery" : "table");
+  }
+  
+  // Function to toggle theme
+  function toggleTheme() {
+    setTheme(theme === "dark" ? "light" : "dark");
   }
   
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <div className="flex items-center justify-between px-4 lg:px-6">
-          <h1 className="text-2xl font-bold">Receipts</h1>
+    <div className="@container/main flex flex-1 flex-col bg-background text-foreground min-h-screen">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
+        <div className="flex items-center justify-between p-4 lg:px-6">
+          <h1 className="text-2xl font-bold">Receipts Gallery</h1>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={toggleTheme}
+              className="h-9 w-9"
+              title="Toggle theme"
+            >
+              {theme === "dark" ? (
+                <IconSun className="h-4 w-4" />
+              ) : (
+                <IconMoon className="h-4 w-4" />
+              )}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => setShowFilters(!showFilters)}
+              className={`h-9 w-9 ${showFilters ? 'bg-muted' : ''}`}
+              title="Toggle filters"
+            >
+              <IconFilter className="h-4 w-4" />
+            </Button>
             <Button 
               variant="outline" 
               size="icon" 
               onClick={toggleViewMode}
               className="h-9 w-9"
-              title={viewMode === "table" ? "Switch to Tile View" : "Switch to Table View"}
+              title={viewMode === "table" ? "Switch to Gallery View" : "Switch to Table View"}
             >
               {viewMode === "table" ? (
                 <IconLayoutGrid className="h-4 w-4" />
@@ -252,33 +286,39 @@ export default function ReceiptsPage() {
             </Button>
             <Button className="flex items-center gap-1" onClick={() => setShowTransactionForm(true)}>
               <IconPlus className="h-4 w-4" />
-              New Receipt
+              <span className="hidden sm:inline">New Receipt</span>
             </Button>
           </div>
         </div>
         
-        <div className="px-4 lg:px-6">
-          <FilterBar 
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            typeFilter={typeFilter}
-            categoryFilter={categoryFilter}
-            startDate={startDate}
-            endDate={endDate}
-            onTypeFilterChange={handleTypeFilterChange}
-            onCategoryFilterChange={handleCategoryFilterChange}
-            onDateRangeChange={handleDateRangeChange}
-            sortByDate={sortByDate}
-            sortByAmount={sortByAmount}
-            sortByDescription={sortByDescription}
-            sortDirection={sortDirection}
-            toggleSortByDate={toggleSortByDate}
-            toggleSortByAmount={toggleSortByAmount}
-            toggleSortByDescription={toggleSortByDescription}
-            categories={categories}
-          />
-          
-          {viewMode === "table" ? (
+        {showFilters && (
+          <div className="border-t border-border p-4 lg:px-6 animate-in fade-in duration-200">
+            <FilterBar 
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              typeFilter={typeFilter}
+              categoryFilter={categoryFilter}
+              startDate={startDate}
+              endDate={endDate}
+              onTypeFilterChange={handleTypeFilterChange}
+              onCategoryFilterChange={handleCategoryFilterChange}
+              onDateRangeChange={handleDateRangeChange}
+              sortByDate={sortByDate}
+              sortByAmount={sortByAmount}
+              sortByDescription={sortByDescription}
+              sortDirection={sortDirection}
+              toggleSortByDate={toggleSortByDate}
+              toggleSortByAmount={toggleSortByAmount}
+              toggleSortByDescription={toggleSortByDescription}
+              categories={categories}
+            />
+          </div>
+        )}
+      </div>
+      
+      <div className="flex-1 p-4 lg:p-6">
+        {viewMode === "table" ? (
+          <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
             <TransactionTable 
               page={page}
               isDone={isDone}
@@ -300,25 +340,23 @@ export default function ReceiptsPage() {
               onPreviousPage={handlePreviousPage}
               handleBulkDelete={handleBulkDelete}
             />
-          ) : (
-            <div className="py-3">
-              <TransactionTileView
-                page={page}
-                isDone={isDone}
-                continueCursor={continueCursor}
-                selectedRows={selectedRows}
-                setSelectedRows={setSelectedRows}
-                handleDelete={handleDelete}
-                handleEdit={handleEdit}
-                pageSize={pageSize}
-                onPageSizeChange={handlePageSizeChange}
-                onNextPage={handleNextPage}
-                onPreviousPage={handlePreviousPage}
-                isFirstPage={cursor === null}
-              />
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <ReceiptGallery 
+            page={page}
+            isDone={isDone}
+            continueCursor={continueCursor}
+            selectedRows={selectedRows}
+            setSelectedRows={setSelectedRows}
+            handleDelete={handleDelete}
+            handleEdit={handleEdit}
+            pageSize={pageSize}
+            onPageSizeChange={handlePageSizeChange}
+            onNextPage={handleNextPage}
+            onPreviousPage={handlePreviousPage}
+            isFirstPage={cursor === null}
+          />
+        )}
       </div>
       
       {/* Transaction Form Dialog */}
