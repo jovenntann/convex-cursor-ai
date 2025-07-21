@@ -40,15 +40,42 @@ export function BudgetProgress({ categories, hideTitle = false, singleType, onAd
     return {
       fixedCategories: categories
         .filter(category => category.nature === "fixed" && category.type === "expense")
-        .sort((a, b) => b.percentageUsed - a.percentageUsed),
+        .sort((a, b) => {
+          // First sort by percentage (descending)
+          if (b.percentageUsed !== a.percentageUsed) {
+            return b.percentageUsed - a.percentageUsed;
+          }
+          // If percentages are equal, sort by budget amount (descending)
+          const budgetA = a.budget || 0;
+          const budgetB = b.budget || 0;
+          return budgetB - budgetA;
+        }),
       
       dynamicCategories: categories
         .filter(category => category.nature === "dynamic" && category.type === "expense")
-        .sort((a, b) => b.percentageUsed - a.percentageUsed),
+        .sort((a, b) => {
+          // First sort by percentage (descending)
+          if (b.percentageUsed !== a.percentageUsed) {
+            return b.percentageUsed - a.percentageUsed;
+          }
+          // If percentages are equal, sort by budget amount (descending)
+          const budgetA = a.budget || 0;
+          const budgetB = b.budget || 0;
+          return budgetB - budgetA;
+        }),
       
       incomeCategories: categories
         .filter(category => category.type === "income")
-        .sort((a, b) => b.percentageUsed - a.percentageUsed)
+        .sort((a, b) => {
+          // First sort by percentage (descending)
+          if (b.percentageUsed !== a.percentageUsed) {
+            return b.percentageUsed - a.percentageUsed;
+          }
+          // If percentages are equal, sort by budget amount (descending)
+          const budgetA = a.budget || 0;
+          const budgetB = b.budget || 0;
+          return budgetB - budgetA;
+        })
     };
   };
   
@@ -113,8 +140,18 @@ export function BudgetProgress({ categories, hideTitle = false, singleType, onAd
   const renderCategoryList = (categoriesToRender: Category[]) => {
     if (categoriesToRender.length === 0) return null;
     
-    // Sort by percentage used
-    const sortedCategories = [...categoriesToRender].sort((a, b) => b.percentageUsed - a.percentageUsed);
+    // Sort by percentage first (highest to lowest), then by budgeted amount (highest to lowest)
+    const sortedCategories = [...categoriesToRender].sort((a, b) => {
+      // First sort by percentage (descending)
+      if (b.percentageUsed !== a.percentageUsed) {
+        return b.percentageUsed - a.percentageUsed;
+      }
+      
+      // If percentages are equal, sort by budget amount (descending)
+      const budgetA = a.budget || 0;
+      const budgetB = b.budget || 0;
+      return budgetB - budgetA;
+    });
     
     return (
       <div className="space-y-5">
