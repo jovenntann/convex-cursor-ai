@@ -1,6 +1,12 @@
 "use client";
 
 import { BudgetProgressBar } from "./BudgetProgressBar";
+import { Button } from "@/components/ui/button";
+import { useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { useState } from "react";
+import { toast } from "sonner";
+import { ArrowUp, Loader2 } from "lucide-react";
 
 type Category = {
   _id: string;
@@ -23,6 +29,43 @@ interface BudgetProgressProps {
 }
 
 export function BudgetProgress({ categories, hideTitle = false, singleType }: BudgetProgressProps) {
+  const updateCategory = useMutation(api.categories.update);
+  const [updatingCategories, setUpdatingCategories] = useState<Set<string>>(new Set());
+
+  // Handle budget adjustment
+  const handleAdjustBudget = async (category: Category) => {
+    if (!category.budget || category.amountSpent <= category.budget) {
+      return;
+    }
+
+    setUpdatingCategories(prev => new Set(prev).add(category._id));
+
+    try {
+      await updateCategory({
+        id: category._id as any,
+        budget: Math.ceil(category.amountSpent), // Round up to nearest dollar
+      });
+
+      toast.success(
+        `Budget for "${category.name}" updated to $${Math.ceil(category.amountSpent).toLocaleString()}`,
+        {
+          description: "Budget adjusted to match current spending"
+        }
+      );
+    } catch (error) {
+      console.error("Failed to update budget:", error);
+      toast.error("Failed to update budget", {
+        description: "Please try again later"
+      });
+    } finally {
+      setUpdatingCategories(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(category._id);
+        return newSet;
+      });
+    }
+  };
+
   // Filter categories by nature or type if singleType is provided
   const getCategoriesToRender = () => {
     if (singleType === "fixed") {
@@ -117,23 +160,48 @@ export function BudgetProgress({ categories, hideTitle = false, singleType }: Bu
       <div className="space-y-5">
         {sortedCategories.map((category) => {
           const gradientColors = getGradientColors(category);
+          const isOverBudget = category.budget && category.amountSpent > category.budget;
+          const isUpdating = updatingCategories.has(category._id);
+          
           return (
             <div key={category._id} className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <div className="flex items-center gap-2">
+              <div className="flex justify-between items-start text-sm">
+                <div className="flex items-center gap-2 flex-1">
                   {category.icon && <span className="text-lg">{category.icon}</span>}
                   <span className="font-medium">{category.name}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span>
-                    ${category.amountSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    {category.budget 
-                      ? ` / $${category.budget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : ''}
-                  </span>
-                  <span className={`font-medium ${getTextColor(category)}`}>
-                    {category.percentageUsed.toFixed(1)}%
-                  </span>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2 justify-end">
+                      <span>
+                        ${category.amountSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {category.budget 
+                          ? ` / $${category.budget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          : ''}
+                      </span>
+                      <span className={`font-medium ${getTextColor(category)}`}>
+                        {category.percentageUsed.toFixed(1)}%
+                      </span>
+                      {isOverBudget && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 py-0 text-xs border-red-300 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => handleAdjustBudget(category)}
+                          disabled={isUpdating}
+                        >
+                          {isUpdating ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <>
+                              <ArrowUp className="h-3 w-3 mr-1" />
+                              Adjust
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
               <BudgetProgressBar 
@@ -144,6 +212,11 @@ export function BudgetProgress({ categories, hideTitle = false, singleType }: Bu
                 rounded={true}
                 animate={true}
               />
+              {isOverBudget && !isUpdating && (
+                <div className="text-xs text-red-600 dark:text-red-400">
+                  Over budget by ${(category.amountSpent - (category.budget || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              )}
             </div>
           );
         })}
