@@ -768,3 +768,31 @@ export const getCategoriesMutation = internalMutation({
     return categories;
   },
 });
+
+/**
+ * Adjust category budget to match current spending amount
+ */
+export const adjustBudgetToSpending = mutation({
+  args: {
+    categoryId: v.id("categories"),
+    newBudget: v.number(),
+  },
+  returns: v.id("categories"),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Not authenticated");
+    }
+    const userId = identity.subject;
+    
+    // Verify the category belongs to the user
+    const category = await ctx.db.get(args.categoryId);
+    if (!category || category.userId !== userId) {
+      throw new ConvexError("Category not found or access denied");
+    }
+    
+    // Update the budget to the new amount
+    await ctx.db.patch(args.categoryId, { budget: args.newBudget });
+    return args.categoryId;
+  },
+});

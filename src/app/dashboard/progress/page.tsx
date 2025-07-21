@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { BudgetProgress } from "@/components/budget-progress";
 import { useState } from "react";
 import { 
@@ -23,6 +23,8 @@ import {
 import { BudgetProgressBar } from "@/components/BudgetProgressBar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { Id } from "@convex/_generated/dataModel";
 
 // Color scheme constants
 const COLOR_SCHEME = {
@@ -75,6 +77,23 @@ export default function ProgressPage() {
     startDate: dateRange.startDate,
     endDate: dateRange.endDate
   });
+  
+  // Mutation to adjust budget
+  const adjustBudget = useMutation(api.categories.adjustBudgetToSpending);
+  
+  // Handle adjust budget
+  const handleAdjustBudget = async (categoryId: string, newBudget: number) => {
+    try {
+      await adjustBudget({
+        categoryId: categoryId as Id<"categories">,
+        newBudget
+      });
+      toast.success("Budget adjusted successfully!");
+    } catch (error) {
+      toast.error("Failed to adjust budget. Please try again.");
+      console.error("Error adjusting budget:", error);
+    }
+  };
   
   // Show loading state
   if (budgetUsageData === undefined) {
@@ -304,6 +323,7 @@ export default function ProgressPage() {
                 ).filter(c => c.type === "income")} 
                 hideTitle={true}
                 singleType="income"
+                onAdjustBudget={handleAdjustBudget}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
@@ -328,6 +348,7 @@ export default function ProgressPage() {
                 ).filter(c => c.nature === "fixed" && c.type === "expense")} 
                 hideTitle={true}
                 singleType="fixed"
+                onAdjustBudget={handleAdjustBudget}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
@@ -353,6 +374,7 @@ export default function ProgressPage() {
                 ).filter(c => c.nature === "dynamic" && c.type === "expense")} 
                 hideTitle={true}
                 singleType="dynamic"
+                onAdjustBudget={handleAdjustBudget}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
